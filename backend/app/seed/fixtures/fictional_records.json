@@ -1,0 +1,42 @@
+[
+  {
+    "record_code": "REC-000101",
+    "case_code": "FIC-CASE-0001",
+    "source_type": "fir",
+    "file_name": "FIR_2026_089_IndiraNagar.pdf",
+    "raw_text": "FIR No 89/2026 registered at Cyber Police Station. Complainant states an unauthorized remittance was traced to dummy shell firm Maya Infotech Pvt Ltd operated by individuals identified as Priya Verma and Rohit Sharma from Sector 62 Noida. Vehicle DL-01-AB-1234 was observed at the registered premises.",
+    "is_synthetic": true
+  },
+  {
+    "record_code": "REC-000102",
+    "case_code": "FIC-CASE-0001",
+    "source_type": "cdr",
+    "file_name": "CDR_Dump_Tower4_March2026.csv",
+    "raw_text": "Cellular call record dump for node +91-9000000001 associated with Priya Verma showing repeated high-frequency calls to +91-9000000002 (Rohit Sharma) and +91-9000000003 (Amit Patel) during non-operational evening hours.",
+    "is_synthetic": true
+  },
+  {
+    "record_code": "REC-000103",
+    "case_code": "FIC-CASE-0001",
+    "source_type": "financial",
+    "file_name": "Bank_Ledger_TXN_00412.json",
+    "raw_text": "Account statement of Indus Fictional Bank Account 8899001122 shows multiple structured wire transfers totaling INR 4,500,000 transferred to Account 3344556677 held in the name of Sunita Rao.",
+    "is_synthetic": true
+  },
+  {
+    "record_code": "REC-000104",
+    "case_code": "FIC-CASE-0001",
+    "source_type": "surveillance",
+    "file_name": "Surveillance_Log_Entry_34.txt",
+    "raw_text": "Field observation report: Individual Vikram Singh was spotted arriving in white sedan HR-26-CD-5678 at Fictional Metro Plaza at 14:15 hrs meeting with Amit Patel.",
+    "is_synthetic": true
+  },
+  {
+    "record_code": "REC-000105",
+    "case_code": "FIC-CASE-0002",
+    "source_type": "fir",
+    "file_name": "FIR_2026_114_CyberHub.pdf",
+    "raw_text": "FIR No 114/2026 registered for unauthorized network intrusion. Log analysis identified proxy gateway IP 198.51.100.45 communicating with endpoint managed by Deepa Nair.",
+    "is_synthetic": true
+  }
+]

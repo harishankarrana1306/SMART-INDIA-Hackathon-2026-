@@ -1,0 +1,4 @@
+transaction_id,timestamp,sender_name,sender_account,receiver_name,receiver_account,amount_inr,bank_ifsc,narration
+TXN-90812,2026-08-20 10:14:00,Apex Global Traders,112233445566,Priya Verma,987654321098,1500000,SBIN0001234,Consultancy Fee Advance
+TXN-90813,2026-08-21 15:30:12,Vikram Singh,223344556677,Apex Global Traders,112233445566,850000,HDFC0004567,Inter-company wire
+TXN-90814,2026-08-22 18:05:45,Priya Verma,987654321098,Rohan Sharma,334455667788,450000,ICIC0008910,Logistics Settlement

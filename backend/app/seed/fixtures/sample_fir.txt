@@ -1,0 +1,13 @@
+FIRST INFORMATION REPORT (SYNTHETIC RECORD — FOR DECISION-SUPPORT EVALUATION ONLY)
+Police Station: Cyber Crime Cell, New Delhi
+FIR No.: 142/2026 | Date of Registration: 2026-08-20
+Section: 420/120B IPC, 66D IT Act
+
+COMPLAINT DETAILS:
+The complainant states that multiple unauthorized wire transactions were directed to corporate bank account A/C 987654321098 at State Bank of India, Connaught Place branch.
+The caller identified themselves as Priya Verma using mobile phone +91-98765-43210 and instructed transfers to be routed through Apex Global Traders Pvt Ltd.
+Subsequent inquiries revealed vehicle DL-01-AB-1234 (White Hyundai Creta) registered to Vikram Singh was present near the cash withdrawal ATM location at Sector 18 Noida.
+Further coordinated communication was traced to phone +91 91234 56789 operating from Rohini Sector 7.
+
+INVESTIGATIVE NOTE:
+This document is purely fictional and generated for hackathon benchmarking. All findings require human investigator review.

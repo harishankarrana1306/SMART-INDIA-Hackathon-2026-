@@ -1,0 +1,11 @@
+FIELD SURVEILLANCE OBSERVATION LOG (SYNTHETIC RECORD)
+Date: 2026-08-21 | Time: 19:45 IST
+Location: Khan Market Parking, New Delhi
+Team: Alpha-4
+
+OBSERVATIONS:
+Subject 1 identified as Vikram Singh (DOB: 1988-04-12) arrived driving vehicle DL-01-AB-1234.
+Met with an associate answering to name Rohan Sharma at Cafe Coffee Day.
+Subject 1 was observed handing over documents while speaking on mobile +91-99887-76655.
+A third individual driving vehicle HR-26-CD-5678 arrived at 20:15 IST and departed towards Gurugram Expressway.
+All findings require human investigator review.
