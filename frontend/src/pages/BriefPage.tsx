@@ -30,6 +30,10 @@ export const BriefPage: React.FC = () => {
       }
     };
     loadCases();
+
+    const handleReload = () => loadCases();
+    window.addEventListener('netra-data-reloaded', handleReload);
+    return () => window.removeEventListener('netra-data-reloaded', handleReload);
   }, []);
 
   const loadBrief = async (caseId: string, notes?: string) => {
@@ -56,101 +60,94 @@ export const BriefPage: React.FC = () => {
     if (!brief) return;
     setIsDownloadingPdf(true);
     try {
-      await api.downloadCaseBriefPdf(brief.case_id, `Executive_Brief_${brief.case_code}.pdf`);
-    } catch (e: any) {
-      console.error('PDF download error:', e);
-      alert('PDF download failed. Please try again.');
+      await api.downloadCaseBriefPdf(brief.case_id, `NETRA_Executive_Brief_${brief.case_code}.pdf`);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'PDF export failed');
     } finally {
       setIsDownloadingPdf(false);
     }
   };
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-8 animate-fadeIn">
+    <div className="p-8 max-w-5xl mx-auto space-y-6 animate-fadeIn text-[#2C241D]">
       {/* Header */}
-      <div className="bg-white p-6 rounded-2xl border border-brand-border shadow-sm">
+      <div className="bg-white p-6 rounded-3xl border border-[#E5DACB] shadow-sm">
         <div className="flex items-center gap-2 mb-1">
-          <FileSpreadsheet className="w-5 h-5 text-brand-purple" />
-          <h2 className="text-lg font-bold text-slate-900 tracking-tight">
-            Standardized Executive Case Briefs & PDF Reporting
+          <FileSpreadsheet className="w-5 h-5 text-[#9C6644]" />
+          <h2 className="text-lg font-bold text-[#2C241D] tracking-tight">
+            Standardized Executive Case Brief & Court-Ready PDF Reporting
           </h2>
         </div>
-        <p className="text-xs text-brand-muted max-w-3xl">
-          Generates standardized decision-support case intelligence summaries with traceable evidentiary citations, discovered network entities, chronological milestones, and SHA-256 digital chain-of-custody seals for formal inter-agency coordination.
+        <p className="text-xs text-[#7D7268] max-w-3xl">
+          Compiles synthesized case intelligence including network topology hubs, prioritized suspect profiles, CDR triangulation, heuristic pattern alerts, temporal crime timelines, and SHA-256 evidence chain of custody.
         </p>
       </div>
 
-      {/* Case Selector Form */}
-      <form
-        onSubmit={handleGenerate}
-        className="bg-white p-6 rounded-2xl border border-brand-border shadow-sm space-y-4"
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Select Case */}
+      {/* Case Selector & Custom Notes Bar */}
+      <form onSubmit={handleGenerate} className="p-5 bg-white rounded-3xl border border-[#E5DACB] shadow-sm space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
-              Select Investigation Case
+            <label className="block text-xs font-bold uppercase tracking-wider text-[#5C5248] mb-1.5">
+              Select Active Case
             </label>
             <select
               value={selectedCaseId}
               onChange={(e) => setSelectedCaseId(e.target.value)}
-              className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-brand-purple font-medium"
+              className="w-full px-3.5 py-2 bg-[#F5EFE6]/60 border border-[#E5DACB] rounded-xl text-xs font-semibold text-[#2C241D] focus:outline-none focus:border-[#9C6644]"
             >
               {cases.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.case_code} — {c.title}
+                  {c.case_code}: {c.title}
                 </option>
               ))}
             </select>
           </div>
 
-          {/* Custom Investigator Notes */}
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
-              Custom Supervisory Notes (Optional)
+          <div className="md:col-span-2">
+            <label className="block text-xs font-bold uppercase tracking-wider text-[#5C5248] mb-1.5">
+              Investigator Annotations / Supervisory Remarks (Optional)
             </label>
             <input
               type="text"
               value={customNotes}
               onChange={(e) => setCustomNotes(e.target.value)}
-              placeholder="e.g., Prepared for inter-state review meeting..."
-              className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-brand-purple"
+              placeholder="e.g. Prepared for Senior Supervisory Briefing & Court Charge-Sheet Annexure"
+              className="w-full px-3.5 py-2 bg-[#F5EFE6]/60 border border-[#E5DACB] rounded-xl text-xs text-[#2C241D] placeholder-[#9C9288] focus:outline-none focus:border-[#9C6644]"
             />
           </div>
         </div>
 
-        <div className="flex justify-end pt-2">
+        <div className="flex justify-end pt-1">
           <button
             type="submit"
-            disabled={isGenerating || !selectedCaseId}
-            className="px-6 py-2.5 bg-brand-purple hover:bg-brand-purple-light text-white text-xs font-bold rounded-xl shadow-lg shadow-brand-purple/20 transition-all flex items-center gap-2"
+            disabled={!selectedCaseId || isGenerating}
+            className="px-5 py-2 bg-[#9C6644] hover:bg-[#7F4F24] text-white text-xs font-semibold rounded-xl transition-all shadow-md shadow-[#9C6644]/25 flex items-center gap-2 cursor-pointer disabled:opacity-50"
           >
-            <Sparkles className="w-4 h-4" />
-            <span>{isGenerating ? 'Synthesizing Intelligence...' : 'Generate Case Brief'}</span>
+            <Sparkles className="w-4 h-4 text-[#DDA15E]" />
+            <span>{isGenerating ? 'Compiling Intelligence Brief...' : 'Generate Case Brief'}</span>
           </button>
         </div>
       </form>
 
-      {/* Error Message */}
       {errorMessage && (
-        <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-900 flex items-center gap-2">
+        <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-700 text-xs flex items-center gap-2">
           <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
           <span>{errorMessage}</span>
         </div>
       )}
 
-      {/* Brief Content Viewer */}
+      {/* Brief Viewer Component */}
       {isGenerating ? (
-        <LoadingState message="Aggregating case graph nodes, citations, and generating custody hash..." />
+        <LoadingState message="Synthesizing multi-source entity relationships and timeline..." />
       ) : brief ? (
         <ExecutiveBriefViewer
           brief={brief}
-          onDownloadPdf={handleDownloadPdf}
           isDownloading={isDownloadingPdf}
+          onDownloadPdf={handleDownloadPdf}
         />
       ) : null}
 
-      {/* Disclaimer */}
+      {/* Mandatory Disclaimer */}
       <DisclaimerBanner variant="light" />
     </div>
   );

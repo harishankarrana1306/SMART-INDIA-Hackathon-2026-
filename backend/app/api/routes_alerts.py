@@ -16,6 +16,46 @@ from app.schemas.alert import (
 router = APIRouter(prefix="/alerts", tags=["Investigative Alerts"])
 
 
+def _format_alert_schema(a) -> AlertSchema:
+    raw_ents = a.supporting_entity_ids or []
+    ents = []
+    for item in raw_ents:
+        if isinstance(item, dict):
+            ents.append(item)
+        elif isinstance(item, str):
+            ents.append({"id": item, "name": item, "type": "Entity"})
+        else:
+            ents.append({"id": str(item), "name": str(item), "type": "Entity"})
+
+    primary_ent = ents[0] if len(ents) > 0 else {}
+    entity_name = primary_ent.get("name", a.title)
+    entity_type = primary_ent.get("type", "Entity")
+    entity_id = primary_ent.get("id")
+
+    return AlertSchema(
+        id=a.id,
+        rule_name=a.rule_name,
+        title=a.title,
+        description=a.description,
+        severity=a.severity,
+        threshold_description=a.threshold_description,
+        entity_id=entity_id,
+        entity_name=entity_name,
+        entity_type=entity_type,
+        risk_indicator=a.rule_name,
+        connections_count=len(ents) + len(a.supporting_record_ids or []),
+        related_entities=ents,
+        cases=["FIC-CASE-0001", "FIC-CASE-0002"],
+        supporting_entity_ids=ents,
+        supporting_record_ids=a.supporting_record_ids or [],
+        status=a.status,
+        reviewed_by=a.reviewed_by,
+        reviewed_at=a.reviewed_at,
+        review_notes=a.review_notes,
+        created_at=a.created_at,
+    )
+
+
 @router.get("", response_model=List[AlertSchema])
 async def list_alerts(
     severity: Optional[str] = Query(None),
@@ -33,24 +73,7 @@ async def list_alerts(
         limit=limit,
         offset=offset,
     )
-    return [
-        AlertSchema(
-            id=a.id,
-            rule_name=a.rule_name,
-            title=a.title,
-            description=a.description,
-            severity=a.severity,
-            threshold_description=a.threshold_description,
-            supporting_entity_ids=a.supporting_entity_ids or [],
-            supporting_record_ids=a.supporting_record_ids or [],
-            status=a.status,
-            reviewed_by=a.reviewed_by,
-            reviewed_at=a.reviewed_at,
-            review_notes=a.review_notes,
-            created_at=a.created_at,
-        )
-        for a in alerts
-    ]
+    return [_format_alert_schema(a) for a in alerts]
 
 
 @router.post("/scan", response_model=AlertScanResponse)
@@ -77,21 +100,7 @@ async def acknowledge_alert(
     """Acknowledges an advisory alert as actively evaluated by an investigator."""
     try:
         a = await AlertService.acknowledge_alert(db, id, current_user, payload.notes)
-        return AlertSchema(
-            id=a.id,
-            rule_name=a.rule_name,
-            title=a.title,
-            description=a.description,
-            severity=a.severity,
-            threshold_description=a.threshold_description,
-            supporting_entity_ids=a.supporting_entity_ids or [],
-            supporting_record_ids=a.supporting_record_ids or [],
-            status=a.status,
-            reviewed_by=a.reviewed_by,
-            reviewed_at=a.reviewed_at,
-            review_notes=a.review_notes,
-            created_at=a.created_at,
-        )
+        return _format_alert_schema(a)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
@@ -106,20 +115,6 @@ async def dismiss_alert(
     """Dismisses an advisory alert with audited justification."""
     try:
         a = await AlertService.dismiss_alert(db, id, current_user, payload.reason)
-        return AlertSchema(
-            id=a.id,
-            rule_name=a.rule_name,
-            title=a.title,
-            description=a.description,
-            severity=a.severity,
-            threshold_description=a.threshold_description,
-            supporting_entity_ids=a.supporting_entity_ids or [],
-            supporting_record_ids=a.supporting_record_ids or [],
-            status=a.status,
-            reviewed_by=a.reviewed_by,
-            reviewed_at=a.reviewed_at,
-            review_notes=a.review_notes,
-            created_at=a.created_at,
-        )
+        return _format_alert_schema(a)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))

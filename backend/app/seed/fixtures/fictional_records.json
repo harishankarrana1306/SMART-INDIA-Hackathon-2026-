@@ -12,7 +12,7 @@
     "case_code": "FIC-CASE-0001",
     "source_type": "cdr",
     "file_name": "CDR_Dump_Tower4_March2026.csv",
-    "raw_text": "Cellular call record dump for node +91-9000000001 associated with Priya Verma showing repeated high-frequency calls to +91-9000000002 (Rohit Sharma) and +91-9000000003 (Amit Patel) during non-operational evening hours.",
+    "raw_text": "Cellular call record dump for node +9190XXXXXX01 associated with Priya Verma showing repeated high-frequency calls to +9190XXXXXX02 (Rohit Sharma) and +9190XXXXXX03 (Amit Patel) during non-operational evening hours.",
     "is_synthetic": true
   },
   {

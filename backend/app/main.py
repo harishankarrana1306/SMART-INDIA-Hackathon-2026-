@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.db.postgres import sync_engine
+from app.db.postgres import sync_engine, get_sync_db
 from app.db.base import Base
 from app.seed.seed_data import seed_database
 import app.models  # Ensure all SQLAlchemy models are registered
@@ -28,7 +28,11 @@ async def lifespan(app: FastAPI):
     # Startup: ensure tables exist and seed demo data
     try:
         Base.metadata.create_all(bind=sync_engine)
-        seed_database()
+        sync_db = get_sync_db()
+        try:
+            seed_database(sync_db, reset=False)
+        finally:
+            sync_db.close()
     except Exception as e:
         print(f"[!] Warning during database startup: {e}")
     yield
@@ -36,16 +40,17 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title=settings.APP_NAME,
+    title="NETRA Intelligence Platform",
     version=settings.APP_VERSION,
-    description="AI-Powered Criminal Network Analysis System — Decision-Support Tool for NCRB / MHA",
+    description="NETRA — National Investigative Intelligence & Crime Network Analysis Platform",
     lifespan=lifespan,
 )
 
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origin_list,
+    allow_origins=["*"],
+    allow_origin_regex=r"^https?://.*$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

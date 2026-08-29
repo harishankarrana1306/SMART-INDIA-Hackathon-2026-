@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import String, Boolean, DateTime, Numeric, Text, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
@@ -18,7 +18,7 @@ class GraphEntity(Base):
     display_name: Mapped[str] = mapped_column(String(256), nullable=False)
     is_masked_sensitive: Mapped[bool] = mapped_column(Boolean, default=False)
     properties_json: Mapped[dict] = mapped_column("properties", JSON, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class EntityMatchCandidate(Base):
@@ -36,7 +36,7 @@ class EntityMatchCandidate(Base):
     status: Mapped[str] = mapped_column(String(16), default="pending")  # pending, merged, rejected
     reviewed_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
     reviewed_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     entity_a = relationship("GraphEntity", foreign_keys=[entity_a_id])
     entity_b = relationship("GraphEntity", foreign_keys=[entity_b_id])

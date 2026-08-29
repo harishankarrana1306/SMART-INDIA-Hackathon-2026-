@@ -13,10 +13,10 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
   return (
     <div className={`flex flex-col items-center justify-center p-12 text-center space-y-3 ${className}`}>
       <div className="relative">
-        <Loader2 className="w-8 h-8 text-brand-purple animate-spin" />
-        <div className="absolute inset-0 blur-md bg-brand-purple/30 rounded-full animate-pulse" />
+        <Loader2 className="w-8 h-8 text-[#9C6644] animate-spin" />
+        <div className="absolute inset-0 blur-md bg-[#9C6644]/20 rounded-full animate-pulse" />
       </div>
-      <p className="text-sm font-medium text-brand-muted">{message}</p>
+      <p className="text-sm font-semibold text-[#7D7268]">{message}</p>
     </div>
   );
 };

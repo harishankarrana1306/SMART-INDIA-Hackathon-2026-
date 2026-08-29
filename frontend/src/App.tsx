@@ -1,26 +1,118 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import { LoginPage } from './auth/LoginPage';
 import AppShell from './layout/AppShell';
 import DashboardPage from './pages/DashboardPage';
 import GraphPage from './pages/GraphPage';
-import AuditPage from './pages/AuditPage';
 import IngestionPage from './pages/IngestionPage';
 import ExtractionReviewPage from './pages/ExtractionReviewPage';
 import EntityResolutionPage from './pages/EntityResolutionPage';
-import TimelinePage from './pages/TimelinePage';
 import AlertsPage from './pages/AlertsPage';
 import BriefPage from './pages/BriefPage';
+import TimelinePage from './pages/TimelinePage';
+import AuditPage from './pages/AuditPage';
 import LoadingState from './components/common/LoadingState';
 
 const MainAppContent: React.FC = () => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [targetCaseCode, setTargetCaseCode] = useState<string | undefined>(undefined);
+  const [targetNodeId, setTargetNodeId] = useState<string | undefined>(undefined);
+  const [targetHighRiskMode, setTargetHighRiskMode] = useState<boolean>(false);
+  const [timelineEntityFilter, setTimelineEntityFilter] = useState<string | undefined>(undefined);
+  const [reloadKey, setReloadKey] = useState<number>(0);
+
+  // Full application state reset listener on demo data reload
+  useEffect(() => {
+    const handleReload = () => {
+      setReloadKey((prev) => prev + 1);
+      setTargetCaseCode('FIC-CASE-0001');
+      setTargetNodeId(undefined);
+      setTargetHighRiskMode(false);
+      setTimelineEntityFilter(undefined);
+    };
+    window.addEventListener('netra-data-reloaded', handleReload);
+    return () => window.removeEventListener('netra-data-reloaded', handleReload);
+  }, []);
+
+  const handleRefreshData = () => {
+    setReloadKey((prev) => prev + 1);
+    setTargetCaseCode('FIC-CASE-0001');
+    setTargetNodeId(undefined);
+    setTargetHighRiskMode(false);
+    setTimelineEntityFilter(undefined);
+  };
+
+  const handleNavigateToGraph = (caseCode?: string, nodeIdOrName?: string, highRiskMode?: boolean) => {
+    if (caseCode) setTargetCaseCode(caseCode);
+    if (nodeIdOrName) setTargetNodeId(nodeIdOrName);
+    setTargetHighRiskMode(!!highRiskMode);
+    setActiveTab('graph');
+  };
+
+  const handleNavigateToTimeline = (entityName?: string, caseCode?: string) => {
+    if (entityName) setTimelineEntityFilter(entityName);
+    if (caseCode) setTargetCaseCode(caseCode);
+    setActiveTab('timeline');
+  };
+
+  const getPageTitleAndSubtitle = () => {
+    switch (activeTab) {
+      case 'dashboard':
+        return {
+          title: 'Investigative Intelligence Dashboard',
+          subtitle: 'Multi-source decision-support analytics and case activity overview',
+        };
+      case 'graph':
+        return {
+          title: 'Interactive Network Graph Visualisation',
+          subtitle: 'Multi-degree relationship discovery with verified source record evidence',
+        };
+      case 'ingestion':
+        return {
+          title: 'Document Ingestion Staging',
+          subtitle: 'Multi-source record ingestion and hybrid parsing pipeline',
+        };
+      case 'extraction':
+        return {
+          title: 'Entity Extraction Review',
+          subtitle: 'Human-in-the-loop review of NLP-extracted entities categorized by data type',
+        };
+      case 'resolution':
+        return {
+          title: 'Entity Resolution Workbench',
+          subtitle: 'Cross-record entity deduplication, alias grouping, and merge authorization',
+        };
+      case 'alerts':
+        return {
+          title: 'Investigation Alerts & Pattern Detection',
+          subtitle: 'Explainable heuristic pattern alerts prioritizing high-impact network indicators',
+        };
+      case 'brief':
+        return {
+          title: 'Executive Briefs & PDF Reporting',
+          subtitle: 'Standardized 10-section case intelligence summaries with tamper-evident PDF export',
+        };
+      case 'timeline':
+        return {
+          title: 'Crime Timeline & Temporal Sequence Reconstruction',
+          subtitle: 'Unified temporal sequence reconstruction across multi-source events with evidentiary citations',
+        };
+      case 'audit':
+        return {
+          title: 'Tamper-Proof Audit & Cryptographic Chain',
+          subtitle: 'Append-only SHA-256 hash-chain integrity verification and supervisory governance stream',
+        };
+      default:
+        return { title: 'NETRA Intelligence System' };
+    }
+  };
+
+  const headerInfo = getPageTitleAndSubtitle();
 
   if (isLoading) {
     return (
-      <div className="h-screen w-screen bg-[#0B0D1B] flex items-center justify-center">
+      <div className="h-screen w-screen bg-[#FBF8F3] flex items-center justify-center">
         <LoadingState message="Initializing Secure Session..." />
       </div>
     );
@@ -30,88 +122,56 @@ const MainAppContent: React.FC = () => {
     return <LoginPage />;
   }
 
-  const handleNavigateToGraph = (caseCode?: string) => {
-    setTargetCaseCode(caseCode);
-    setActiveTab('graph');
-  };
-
-  const getPageTitleAndSubtitle = () => {
-    switch (activeTab) {
-      case 'dashboard':
-        return {
-          title: 'Investigative Network Dashboard',
-          subtitle: 'Multi-source decision-support analytics and case activity overview',
-        };
-      case 'graph':
-        return {
-          title: 'Interactive Network Graph Visualisation',
-          subtitle: 'Multi-degree relationship discovery with verified source record evidence',
-        };
-      case 'audit':
-        return {
-          title: 'Tamper-Evident SHA-256 Audit Ledger',
-          subtitle: 'Cryptographic hash-chained audit log for chain-of-custody verification',
-        };
-      case 'ingestion':
-        return {
-          title: 'Document Ingestion Staging',
-          subtitle: 'Phase 2: Multi-source record ingestion and parsing pipeline',
-        };
-      case 'extraction':
-        return {
-          title: 'Entity Extraction Review',
-          subtitle: 'Phase 2: Human-in-the-loop review of NLP-extracted entities',
-        };
-      case 'resolution':
-        return {
-          title: 'Entity Resolution Workbench',
-          subtitle: 'Phase 2: Cross-record entity deduplication and merging',
-        };
-      case 'timeline':
-        return {
-          title: 'Event Chronology Timeline',
-          subtitle: 'Phase 2: Temporal relationship reconstruction',
-        };
-      case 'alerts':
-        return {
-          title: 'Investigative Pattern Alerts',
-          subtitle: 'Phase 3: Advisory rule-based alerts requiring investigator review',
-        };
-      case 'brief':
-        return {
-          title: 'Executive Briefs & Reporting',
-          subtitle: 'Phase 3: Standardized decision-support briefs with PDF export',
-        };
-      default:
-        return { title: 'Network Intelligence System' };
-    }
-  };
-
-  const headerInfo = getPageTitleAndSubtitle();
-
   return (
     <AppShell
       activeTab={activeTab}
-      onTabChange={setActiveTab}
+      onTabChange={(tab) => {
+        setActiveTab(tab);
+      }}
       title={headerInfo.title}
       subtitle={headerInfo.subtitle}
+      onRefreshData={handleRefreshData}
+      onNavigateToGraph={handleNavigateToGraph}
+      onNavigateToAlerts={() => setActiveTab('alerts')}
+      onNavigateToTimeline={handleNavigateToTimeline}
     >
-      {activeTab === 'dashboard' && (
-        <DashboardPage
-          onNavigateToGraph={handleNavigateToGraph}
-          onNavigateToAudit={() => setActiveTab('audit')}
-        />
-      )}
-      {activeTab === 'graph' && <GraphPage initialCaseCode={targetCaseCode} />}
-      {activeTab === 'audit' && <AuditPage />}
-      {activeTab === 'ingestion' && (
-        <IngestionPage onNavigateToReview={() => setActiveTab('extraction')} />
-      )}
-      {activeTab === 'extraction' && <ExtractionReviewPage />}
-      {activeTab === 'resolution' && <EntityResolutionPage />}
-      {activeTab === 'timeline' && <TimelinePage />}
-      {activeTab === 'alerts' && <AlertsPage />}
-      {activeTab === 'brief' && <BriefPage />}
+      <div key={reloadKey} className="h-full w-full">
+        {activeTab === 'dashboard' && (
+          <DashboardPage
+            onNavigateToGraph={handleNavigateToGraph}
+            onNavigateToAlerts={() => setActiveTab('alerts')}
+          />
+        )}
+        {activeTab === 'graph' && (
+          <GraphPage
+            initialCaseCode={targetCaseCode || 'FIC-CASE-0001'}
+            initialNodeId={targetNodeId}
+            initialHighRiskMode={targetHighRiskMode}
+            onNavigateToTimeline={handleNavigateToTimeline}
+          />
+        )}
+        {activeTab === 'ingestion' && (
+          <IngestionPage onNavigateToReview={() => setActiveTab('extraction')} />
+        )}
+        {activeTab === 'extraction' && (
+          <ExtractionReviewPage onNavigateToGraph={handleNavigateToGraph} />
+        )}
+        {activeTab === 'resolution' && (
+          <EntityResolutionPage onNavigateToGraph={handleNavigateToGraph} />
+        )}
+        {activeTab === 'alerts' && (
+          <AlertsPage onNavigateToGraph={handleNavigateToGraph} />
+        )}
+        {activeTab === 'brief' && <BriefPage />}
+        {activeTab === 'timeline' && (
+          <TimelinePage
+            initialEntityFilter={timelineEntityFilter}
+            initialCaseCode={targetCaseCode || 'FIC-CASE-0001'}
+            onNavigateToGraph={handleNavigateToGraph}
+          />
+        )}
+        {activeTab === 'audit' && user?.role === 'supervisor' && <AuditPage />}
+      </div>
     </AppShell>
   );
 };

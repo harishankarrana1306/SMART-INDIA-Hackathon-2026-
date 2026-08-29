@@ -11,7 +11,7 @@ IMPORTANT:
 """
 
 import uuid
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from sqlalchemy.orm import Session
 from app.db.postgres import get_sync_db, sync_engine
 from app.db.base import Base
@@ -25,19 +25,48 @@ from app.models.extraction import ExtractedEntity
 from app.models.entity import GraphEntity, EntityMatchCandidate
 from app.models.alert import Alert
 from app.models.audit_log import AuditLog
+from app.models.report import CaseBrief
 
 
-def seed_database(db: Session = None):
+def seed_database(db: Session = None, reset: bool = False):
     close_db = False
     if db is None:
         Base.metadata.create_all(bind=sync_engine)
         db = get_sync_db()
         close_db = True
     else:
-        Base.metadata.create_all(bind=db.get_bind())
+        bind = getattr(db, "bind", None)
+        if bind is None and hasattr(db, "get_bind"):
+            try:
+                bind = db.get_bind()
+            except Exception:
+                bind = sync_engine
+        if bind is not None:
+            Base.metadata.create_all(bind=bind)
+        else:
+            Base.metadata.create_all(bind=sync_engine)
 
     try:
-        print("[+] Starting Idempotent Synthetic Data Seeder...")
+        print(f"[+] Starting Synthetic Data Seeder (reset={reset})...")
+
+        if reset:
+            print("[+] Performing atomic reset of database tables and mock graph store...")
+            db.query(AuditLog).delete()
+            db.query(Alert).delete()
+            db.query(EntityMatchCandidate).delete()
+            db.query(ExtractedEntity).delete()
+            db.query(CaseBrief).delete()
+            db.query(GraphEntity).delete()
+            db.query(SourceRecord).delete()
+            db.query(Case).delete()
+            db.query(User).delete()
+            neo4j_service.mock_store.clear()
+            if neo4j_service.is_connected:
+                try:
+                    neo4j_service.run_query("MATCH (n) DETACH DELETE n")
+                except Exception as e:
+                    print(f"[-] Neo4j clear error: {e}")
+            db.flush()
 
         # ---------------------------------------------------------------------
         # 1. SEED USERS (Idempotent by username)
@@ -55,12 +84,6 @@ def seed_database(db: Session = None):
                 "full_name": "Vikramaditya Sen",
                 "role": "supervisor",
             },
-            {
-                "username": "admin1",
-                "password_plain": "Admin@123",
-                "full_name": "Aditi Deshmukh",
-                "role": "administrator",
-            },
         ]
 
         user_map = {}
@@ -68,13 +91,13 @@ def seed_database(db: Session = None):
             existing = db.query(User).filter(User.username == u_data["username"]).first()
             if not existing:
                 u = User(
-                    id=str(uuid.uuid4()),
+                    id=str(uuid.uuid5(uuid.NAMESPACE_DNS, f"netra.user.{u_data['username']}")),
                     username=u_data["username"],
                     password_hash=get_password_hash(u_data["password_plain"]),
                     full_name=u_data["full_name"],
                     role=u_data["role"],
                     is_active=True,
-                    created_at=datetime.utcnow(),
+                    created_at=datetime.now(timezone.utc),
                 )
                 db.add(u)
                 db.flush()
@@ -146,7 +169,7 @@ def seed_database(db: Session = None):
                     status=c_data["status"],
                     opened_on=c_data["opened_on"],
                     is_synthetic=True,
-                    created_at=datetime.utcnow(),
+                    created_at=datetime.now(timezone.utc),
                 )
                 db.add(c)
                 db.flush()
@@ -173,7 +196,7 @@ def seed_database(db: Session = None):
                 "case_code": "FIC-CASE-0001",
                 "source_type": "cdr",
                 "file_name": "CDR_Tower4_March2026.csv",
-                "raw_text": "Call record extract for +91-9000000001 showing 48 calls with +91-9000000002 and 22 calls with +91-9000000003 during night hours.",
+                "raw_text": "Call record extract for +9190XXXXXX01 showing 48 calls with +9190XXXXXX02 and 22 calls with +9190XXXXXX03 during night hours.",
             },
             {
                 "record_code": "REC-000103",
@@ -194,7 +217,7 @@ def seed_database(db: Session = None):
                 "case_code": "FIC-CASE-0001",
                 "source_type": "social_media",
                 "file_name": "Social_Post_Archive_77.json",
-                "raw_text": "Public social post promoting employment opportunities via proxy shell company Horizon Logistics linked to phone +91-9000000004.",
+                "raw_text": "Public social post promoting employment opportunities via proxy shell company Horizon Logistics linked to phone +9190XXXXXX04.",
             },
             {
                 "record_code": "REC-000106",
@@ -216,7 +239,7 @@ def seed_database(db: Session = None):
                 "case_code": "FIC-CASE-0002",
                 "source_type": "cdr",
                 "file_name": "CDR_CyberHub_Feb2026.csv",
-                "raw_text": "Cellular traffic analysis between +91-9000000005 (Deepa Nair) and +91-9000000006 (Karan Johar) active across Highway Toll Plaza 14.",
+                "raw_text": "Cellular traffic analysis between +9190XXXXXX05 (Deepa Nair) and +9190XXXXXX06 (Karan Johar) active across Highway Toll Plaza 14.",
             },
             {
                 "record_code": "REC-000109",
@@ -245,7 +268,7 @@ def seed_database(db: Session = None):
                 "case_code": "FIC-CASE-0003",
                 "source_type": "cdr",
                 "file_name": "CDR_Tower9_Rajesh.csv",
-                "raw_text": "Frequent coordinate co-location between +91-9000000007 (Rajesh Gupta) and +91-9000000008 (Meera Sen) at Connaught Place Hub.",
+                "raw_text": "Frequent coordinate co-location between +9190XXXXXX07 (Rajesh Gupta) and +9190XXXXXX08 (Meera Sen) at Connaught Place Hub.",
             },
             {
                 "record_code": "REC-000113",
@@ -273,7 +296,7 @@ def seed_database(db: Session = None):
                 "case_code": "FIC-CASE-0006",
                 "source_type": "social_media",
                 "file_name": "Phishing_Domain_Registration.json",
-                "raw_text": "WHOIS registration data links proxy domain aster-verify-fictional.org to registrant phone +91-9000000009 and email proxy.",
+                "raw_text": "WHOIS registration data links proxy domain aster-verify-fictional.org to registrant phone +9190XXXXXX09 and email proxy.",
             },
         ]
 
@@ -290,7 +313,7 @@ def seed_database(db: Session = None):
                     raw_text=r_data["raw_text"],
                     file_name=r_data["file_name"],
                     ingested_by=admin_user.id if admin_user else None,
-                    ingested_at=datetime.utcnow(),
+                    ingested_at=datetime.now(timezone.utc),
                     is_synthetic=True,
                 )
                 db.add(r)
@@ -319,48 +342,63 @@ def seed_database(db: Session = None):
             {"id": "person_08", "label": "Person", "name": "Rajesh Gupta", "dob": "1982-06-18", "is_masked": False},
             {"id": "person_09", "label": "Person", "name": "Meera Sen", "dob": "1995-03-27", "is_masked": False},
             {"id": "person_10", "label": "Person", "name": "Tarun Joshi", "dob": "1992-10-10", "is_masked": False},
+            {"id": "person_11", "label": "Person", "name": "Rahul Sharma", "dob": "1989-05-14", "is_masked": False},
+            {"id": "person_12", "label": "Person", "name": "R Sharma", "dob": "1989-05-14", "is_masked": False},
+            {"id": "person_13", "label": "Person", "name": "Manish Kumar", "dob": "1996-01-22", "is_masked": False},
+            {"id": "person_14", "label": "Person", "name": "Suresh Oberoi", "dob": "1984-11-17", "is_masked": False},
+            {"id": "person_15", "label": "Person", "name": "Harish Rawat", "dob": "1986-07-09", "is_masked": False},
+            {"id": "person_16", "label": "Person", "name": "Michael Smith", "dob": "1991-03-24", "is_masked": False},
 
             # Phones (Sensitive: masked by default)
-            {"id": "phone_01", "label": "Phone", "name": "+91-90000-00001", "number_masked": "+91-90000-00001", "number": "+91-98765-43210", "is_masked": True},
-            {"id": "phone_02", "label": "Phone", "name": "+91-90000-00002", "number_masked": "+91-90000-00002", "number": "+91-98765-43211", "is_masked": True},
-            {"id": "phone_03", "label": "Phone", "name": "+91-90000-00003", "number_masked": "+91-90000-00003", "number": "+91-98765-43212", "is_masked": True},
-            {"id": "phone_04", "label": "Phone", "name": "+91-90000-00004", "number_masked": "+91-90000-00004", "number": "+91-98765-43213", "is_masked": True},
-            {"id": "phone_05", "label": "Phone", "name": "+91-90000-00005", "number_masked": "+91-90000-00005", "number": "+91-98765-43214", "is_masked": True},
-            {"id": "phone_06", "label": "Phone", "name": "+91-90000-00006", "number_masked": "+91-90000-00006", "number": "+91-98765-43215", "is_masked": True},
-            {"id": "phone_07", "label": "Phone", "name": "+91-90000-00007", "number_masked": "+91-90000-00007", "number": "+91-98765-43216", "is_masked": True},
-            {"id": "phone_08", "label": "Phone", "name": "+91-90000-00008", "number_masked": "+91-90000-00008", "number": "+91-98765-43217", "is_masked": True},
-            {"id": "phone_09", "label": "Phone", "name": "+91-90000-00009", "number_masked": "+91-90000-00009", "number": "+91-98765-43218", "is_masked": True},
+            {"id": "phone_01", "label": "Phone", "name": "+9190XXXXXX01", "number_masked": "+9190XXXXXX01", "number": "+91-98765-43210", "is_masked": True},
+            {"id": "phone_02", "label": "Phone", "name": "+9190XXXXXX02", "number_masked": "+9190XXXXXX02", "number": "+91-98765-43211", "is_masked": True},
+            {"id": "phone_03", "label": "Phone", "name": "+9190XXXXXX03", "number_masked": "+9190XXXXXX03", "number": "+91-98765-43212", "is_masked": True},
+            {"id": "phone_04", "label": "Phone", "name": "+9190XXXXXX04", "number_masked": "+9190XXXXXX04", "number": "+91-98765-43213", "is_masked": True},
+            {"id": "phone_05", "label": "Phone", "name": "+9190XXXXXX05", "number_masked": "+9190XXXXXX05", "number": "+91-98765-43214", "is_masked": True},
+            {"id": "phone_06", "label": "Phone", "name": "+9190XXXXXX06", "number_masked": "+9190XXXXXX06", "number": "+91-98765-43215", "is_masked": True},
+            {"id": "phone_07", "label": "Phone", "name": "+9190XXXXXX07", "number_masked": "+9190XXXXXX07", "number": "+91-98765-43216", "is_masked": True},
+            {"id": "phone_08", "label": "Phone", "name": "+9190XXXXXX08", "number_masked": "+9190XXXXXX08", "number": "+91-98765-43217", "is_masked": True},
+            {"id": "phone_09", "label": "Phone", "name": "+9190XXXXXX09", "number_masked": "+9190XXXXXX09", "number": "+91-98765-43218", "is_masked": True},
+            {"id": "phone_10", "label": "Phone", "name": "+9190XXXXXX10", "number_masked": "+9190XXXXXX10", "number": "+91-98765-43219", "is_masked": True},
+            {"id": "phone_11", "label": "Phone", "name": "+9190XXXXXX11", "number_masked": "+9190XXXXXX11", "number": "+91-98765-43220", "is_masked": True},
 
             # Vehicles
             {"id": "vehicle_01", "label": "Vehicle", "name": "DL-01-AB-1234", "vehicle_type": "Sedan (White)", "is_masked": False},
             {"id": "vehicle_02", "label": "Vehicle", "name": "HR-26-CD-5678", "vehicle_type": "SUV (Black)", "is_masked": False},
             {"id": "vehicle_03", "label": "Vehicle", "name": "MH-04-EF-9012", "vehicle_type": "Commercial Truck", "is_masked": False},
             {"id": "vehicle_04", "label": "Vehicle", "name": "DL-03-GH-3456", "vehicle_type": "Hatchback (Silver)", "is_masked": False},
+            {"id": "vehicle_05", "label": "Vehicle", "name": "DL-05-JK-7890", "vehicle_type": "Van (Grey)", "is_masked": False},
 
             # Locations
             {"id": "loc_01", "label": "Location", "name": "Sector 62 Noida Hub", "lat": 28.6280, "lng": 77.3649, "is_masked": False},
             {"id": "loc_02", "label": "Location", "name": "Fictional Metro Plaza", "lat": 28.5355, "lng": 77.3910, "is_masked": False},
-            {"id": "loc_03", "label": "Location", "name": "Cyber Hub Sector 12", "lat": 28.4900, "lng": 77.0800, "is_masked": False},
+            {"id": "loc_03", "label": "Location", "name": "Highway Toll Plaza 14", "lat": 28.4900, "lng": 77.0800, "is_masked": False},
             {"id": "loc_04", "label": "Location", "name": "Dwarka Sector 10 Flat", "lat": 28.5800, "lng": 77.0500, "is_masked": False},
             {"id": "loc_05", "label": "Location", "name": "Connaught Place Complex", "lat": 28.6315, "lng": 77.2167, "is_masked": False},
+            {"id": "loc_06", "label": "Location", "name": "South Extension ATM Hub", "lat": 28.5700, "lng": 77.2200, "is_masked": False},
+            {"id": "loc_07", "label": "Location", "name": "Cloud Server Gateway Node 99", "lat": 28.6000, "lng": 77.3000, "is_masked": False},
 
             # Organisations
             {"id": "org_01", "label": "Organisation", "name": "Maya Infotech Pvt Ltd", "org_type": "Shell IT Company", "is_masked": False},
             {"id": "org_02", "label": "Organisation", "name": "Horizon Logistics Fictional", "org_type": "Courier Agency", "is_masked": False},
             {"id": "org_03", "label": "Organisation", "name": "Lotus Transit Logistics", "org_type": "Transport Operator", "is_masked": False},
             {"id": "org_04", "label": "Organisation", "name": "Falcon Document Solutions", "org_type": "Documentation Agency", "is_masked": False},
+            {"id": "org_05", "label": "Organisation", "name": "Apex Tech Gateway Solutions", "org_type": "Cyber Hosting Proxy", "is_masked": False},
 
             # Bank Accounts (Sensitive: masked by default)
             {"id": "acc_01", "label": "BankAccount", "name": "XXXX-XXXX-1122", "account_masked": "XXXX-XXXX-1122", "account_number": "8899001122", "bank_name": "Indus Fictional Bank", "is_masked": True},
             {"id": "acc_02", "label": "BankAccount", "name": "XXXX-XXXX-6677", "account_masked": "XXXX-XXXX-6677", "account_number": "3344556677", "bank_name": "National Fictional Bank", "is_masked": True},
             {"id": "acc_03", "label": "BankAccount", "name": "XXXX-XXXX-8899", "account_masked": "XXXX-XXXX-8899", "account_number": "5566778899", "bank_name": "Axis Fictional Bank", "is_masked": True},
             {"id": "acc_04", "label": "BankAccount", "name": "XXXX-XXXX-0011", "account_masked": "XXXX-XXXX-0011", "account_number": "7788990011", "bank_name": "Standard Fictional Bank", "is_masked": True},
+            {"id": "acc_05", "label": "BankAccount", "name": "XXXX-XXXX-2233", "account_masked": "XXXX-XXXX-2233", "account_number": "9900112233", "bank_name": "Metro Escrow Bank", "is_masked": True},
 
             # Cases in Graph
             {"id": "case_node_01", "label": "Case", "name": "FIC-CASE-0001", "case_code": "FIC-CASE-0001", "title": "Operation Maya Orchid", "status": "open", "is_masked": False},
             {"id": "case_node_02", "label": "Case", "name": "FIC-CASE-0002", "case_code": "FIC-CASE-0002", "title": "Lotus Transit Syndicate", "status": "open", "is_masked": False},
             {"id": "case_node_03", "label": "Case", "name": "FIC-CASE-0003", "case_code": "FIC-CASE-0003", "title": "Project Falcon Shield", "status": "open", "is_masked": False},
             {"id": "case_node_04", "label": "Case", "name": "FIC-CASE-0004", "case_code": "FIC-CASE-0004", "title": "Operation Silver Stream", "status": "open", "is_masked": False},
+            {"id": "case_node_05", "label": "Case", "name": "FIC-CASE-0005", "case_code": "FIC-CASE-0005", "title": "Case Blue Horizon", "status": "open", "is_masked": False},
+            {"id": "case_node_06", "label": "Case", "name": "FIC-CASE-0006", "case_code": "FIC-CASE-0006", "title": "Operation Asteroid", "status": "open", "is_masked": False},
         ]
 
         for ent in entities_seed:
@@ -373,7 +411,7 @@ def seed_database(db: Session = None):
                     entity_type=ent["label"],
                     display_name=ent["name"],
                     is_masked_sensitive=ent["is_masked"],
-                    created_at=datetime.utcnow(),
+                    created_at=datetime.now(timezone.utc),
                 )
                 db.add(ge)
                 db.flush()
@@ -390,10 +428,10 @@ def seed_database(db: Session = None):
                 neo4j_service.run_query(cypher, {"id": ent["id"], "props": props})
 
         # ---------------------------------------------------------------------
-        # 5. SEED GRAPH RELATIONSHIPS (Connected Cluster + Multi-Hop Links)
+        # 5. SEED GRAPH RELATIONSHIPS (Distinct, Realistic Case Subgraphs)
         # ---------------------------------------------------------------------
         relationships_seed = [
-            # Case 1 Core Network
+            # ---------------- Case 1: Operation Maya Orchid (Cyber/Financial) ----------------
             {"id": "e01", "src": "person_01", "tgt": "case_node_01", "type": "INVOLVED_IN", "rec": "REC-000101", "exp": "Named in complaint record as operational director of Maya Infotech.", "conf": 0.95, "date": "2026-01-15"},
             {"id": "e02", "src": "person_02", "tgt": "case_node_01", "type": "INVOLVED_IN", "rec": "REC-000101", "exp": "Named as co-signatory for commercial bank transactions.", "conf": 0.92, "date": "2026-01-15"},
             {"id": "e03", "src": "person_01", "tgt": "person_02", "type": "LINKED_THROUGH_REPORT", "rec": "REC-000101", "exp": "Joint authorized signatories identified in company incorporation filings.", "conf": 0.98, "date": "2026-01-15"},
@@ -401,39 +439,72 @@ def seed_database(db: Session = None):
             {"id": "e05", "src": "person_02", "tgt": "phone_02", "type": "OWNS_PHONE", "rec": "REC-000102", "exp": "Subscriber profile and IMEI handset history match.", "conf": 0.99, "date": "2026-01-16"},
             {"id": "e06", "src": "phone_01", "tgt": "phone_02", "type": "CALLED", "rec": "REC-000102", "exp": "48 cellular calls logged across multiple days (duration: 3,420 seconds).", "conf": 1.0, "date": "2026-03-01"},
             {"id": "e07", "src": "phone_01", "tgt": "phone_03", "type": "CALLED", "rec": "REC-000102", "exp": "22 direct telecommunication exchanges logged.", "conf": 1.0, "date": "2026-03-01"},
-            {"id": "e08", "src": "person_03", "tgt": "phone_03", "type": "OWNS_PHONE", "rec": "REC-000102", "exp": "Subscriber verification records and cellular tower registration.", "conf": 0.94, "date": "2026-01-20"},
-            {"id": "e09", "src": "person_01", "tgt": "org_01", "type": "ASSOCIATED_WITH", "rec": "REC-000101", "exp": "Listed as registered managing stakeholder.", "conf": 0.97, "date": "2026-01-15"},
-            {"id": "e10", "src": "person_02", "tgt": "org_01", "type": "ASSOCIATED_WITH", "rec": "REC-000101", "exp": "Authorized representative in statutory filings.", "conf": 0.97, "date": "2026-01-15"},
-            {"id": "e11", "src": "org_01", "tgt": "loc_01", "type": "REGISTERED_AT", "rec": "REC-000101", "exp": "Corporate registrar address listed at Sector 62 Noida premises.", "conf": 0.95, "date": "2026-01-15"},
-            {"id": "e12", "src": "person_01", "tgt": "vehicle_01", "type": "OWNS_OR_USES", "rec": "REC-000101", "exp": "Vehicle registration portal records match personal identification.", "conf": 0.96, "date": "2026-01-15"},
-            {"id": "e13", "src": "person_01", "tgt": "acc_01", "type": "TRANSFERRED_MONEY_TO", "rec": "REC-000103", "exp": "Wire transfer deposit from verified personal account.", "conf": 1.0, "date": "2026-02-05"},
-            {"id": "e14", "src": "acc_01", "tgt": "acc_02", "type": "TRANSFERRED_MONEY_TO", "rec": "REC-000103", "exp": "Direct inter-bank ledger transfer of INR 4,500,000.", "conf": 1.0, "date": "2026-02-06"},
-            {"id": "e15", "src": "person_04", "tgt": "acc_02", "type": "ASSOCIATED_WITH", "rec": "REC-000103", "exp": "Beneficiary primary account holder on record.", "conf": 0.99, "date": "2026-02-06"},
+            {"id": "e08", "src": "person_11", "tgt": "case_node_01", "type": "INVOLVED_IN", "rec": "REC-000101", "exp": "Referenced in bank mandate records as Rahul Sharma.", "conf": 0.94, "date": "2026-01-15"},
+            {"id": "e09", "src": "person_12", "tgt": "phone_02", "type": "OWNS_PHONE", "rec": "REC-000106", "exp": "Historical subscriber invoice issued under name R Sharma.", "conf": 0.91, "date": "2026-01-16"},
+            {"id": "e10", "src": "person_01", "tgt": "org_01", "type": "ASSOCIATED_WITH", "rec": "REC-000101", "exp": "Listed as registered managing stakeholder.", "conf": 0.97, "date": "2026-01-15"},
+            {"id": "e11", "src": "person_02", "tgt": "org_01", "type": "ASSOCIATED_WITH", "rec": "REC-000101", "exp": "Authorized representative in statutory filings.", "conf": 0.97, "date": "2026-01-15"},
+            {"id": "e12", "src": "org_01", "tgt": "loc_01", "type": "REGISTERED_AT", "rec": "REC-000101", "exp": "Corporate registrar address listed at Sector 62 Noida premises.", "conf": 0.95, "date": "2026-01-15"},
+            {"id": "e13", "src": "person_01", "tgt": "vehicle_01", "type": "OWNS_OR_USES", "rec": "REC-000101", "exp": "Vehicle registration portal records match personal identification.", "conf": 0.96, "date": "2026-01-15"},
+            {"id": "e14", "src": "person_01", "tgt": "acc_01", "type": "TRANSFERRED_MONEY_TO", "rec": "REC-000103", "exp": "Wire transfer deposit from verified personal account.", "conf": 1.0, "date": "2026-02-05"},
+            {"id": "e15", "src": "acc_01", "tgt": "acc_02", "type": "TRANSFERRED_MONEY_TO", "rec": "REC-000103", "exp": "Direct inter-bank ledger transfer of INR 4,500,000.", "conf": 1.0, "date": "2026-02-06"},
+            {"id": "e16", "src": "person_04", "tgt": "acc_02", "type": "ASSOCIATED_WITH", "rec": "REC-000103", "exp": "Beneficiary primary account holder on record.", "conf": 0.99, "date": "2026-02-06"},
+            {"id": "e17", "src": "person_04", "tgt": "case_node_01", "type": "INVOLVED_IN", "rec": "REC-000103", "exp": "Beneficiary account holder linked to Case 1 illicit wires.", "conf": 0.92, "date": "2026-02-06"},
 
-            # Bridge Entities linking Cluster 1 to Cluster 2
-            {"id": "e16", "src": "person_03", "tgt": "person_05", "type": "PRESENT_AT", "rec": "REC-000104", "exp": "Simultaneous physical presence documented in visual surveillance log at Metro Plaza.", "conf": 0.90, "date": "2026-02-14"},
-            {"id": "e17", "src": "person_05", "tgt": "vehicle_02", "type": "OWNS_OR_USES", "rec": "REC-000104", "exp": "Observed operating black SUV vehicle DL-01-CD-5678 during field check.", "conf": 0.92, "date": "2026-02-14"},
-            {"id": "e18", "src": "person_05", "tgt": "loc_02", "type": "PRESENT_AT", "rec": "REC-000104", "exp": "Surveillance log confirms arrival and meeting at Plaza.", "conf": 0.91, "date": "2026-02-14"},
-            {"id": "e19", "src": "acc_02", "tgt": "acc_03", "type": "TRANSFERRED_MONEY_TO", "rec": "REC-000109", "exp": "Secondary wire transfer layering INR 2,200,000 to logistics commercial account.", "conf": 1.0, "date": "2026-02-20"},
-            {"id": "e20", "src": "org_03", "tgt": "acc_03", "type": "ASSOCIATED_WITH", "rec": "REC-000109", "exp": "Commercial banking facility registered under corporate name.", "conf": 0.98, "date": "2026-02-20"},
-            {"id": "e21", "src": "person_06", "tgt": "org_03", "type": "ASSOCIATED_WITH", "rec": "REC-000109", "exp": "Designated manager for transport operations.", "conf": 0.93, "date": "2026-02-20"},
-            {"id": "e22", "src": "person_06", "tgt": "case_node_02", "type": "INVOLVED_IN", "rec": "REC-000107", "exp": "Named in Case FIC-CASE-0002 regarding transit gateway inspection.", "conf": 0.90, "date": "2026-02-01"},
-            {"id": "e23", "src": "person_06", "tgt": "phone_05", "type": "OWNS_PHONE", "rec": "REC-000108", "exp": "Subscriber registration profile confirmed.", "conf": 0.99, "date": "2026-02-02"},
-            {"id": "e24", "src": "phone_05", "tgt": "phone_06", "type": "CALLED", "rec": "REC-000108", "exp": "18 cellular calls recorded while crossing toll plaza region.", "conf": 0.95, "date": "2026-02-18"},
-            {"id": "e25", "src": "person_07", "tgt": "phone_06", "type": "OWNS_PHONE", "rec": "REC-000108", "exp": "Verified subscriber profile and handset IMEI match.", "conf": 0.98, "date": "2026-02-18"},
-            {"id": "e26", "src": "org_03", "tgt": "vehicle_03", "type": "OWNS_OR_USES", "rec": "REC-000110", "exp": "Fleet registration listed under commercial carrier entity.", "conf": 0.97, "date": "2026-02-19"},
+            # ---------------- Case 2: Project Lotus Transit (Transport & Fleet Logistics) ----------------
+            {"id": "e18", "src": "person_06", "tgt": "case_node_02", "type": "INVOLVED_IN", "rec": "REC-000107", "exp": "Named in Case FIC-CASE-0002 regarding transit gateway inspection.", "conf": 0.90, "date": "2026-02-01"},
+            {"id": "e19", "src": "person_07", "tgt": "case_node_02", "type": "INVOLVED_IN", "rec": "REC-000108", "exp": "Transport co-coordinator logged at highway checkpoint.", "conf": 0.91, "date": "2026-02-02"},
+            {"id": "e20", "src": "person_06", "tgt": "org_03", "type": "ASSOCIATED_WITH", "rec": "REC-000109", "exp": "Designated manager for transport operations.", "conf": 0.93, "date": "2026-02-20"},
+            {"id": "e21", "src": "person_06", "tgt": "phone_05", "type": "OWNS_PHONE", "rec": "REC-000108", "exp": "Subscriber registration profile confirmed.", "conf": 0.99, "date": "2026-02-02"},
+            {"id": "e22", "src": "phone_05", "tgt": "phone_06", "type": "CALLED", "rec": "REC-000108", "exp": "18 cellular calls recorded while crossing toll plaza region.", "conf": 0.95, "date": "2026-02-18"},
+            {"id": "e23", "src": "person_07", "tgt": "phone_06", "type": "OWNS_PHONE", "rec": "REC-000108", "exp": "Verified subscriber profile and handset IMEI match.", "conf": 0.98, "date": "2026-02-18"},
+            {"id": "e24", "src": "org_03", "tgt": "vehicle_03", "type": "OWNS_OR_USES", "rec": "REC-000110", "exp": "Fleet registration listed under commercial carrier entity.", "conf": 0.97, "date": "2026-02-19"},
+            {"id": "e25", "src": "vehicle_03", "tgt": "loc_03", "type": "PRESENT_AT", "rec": "REC-000110", "exp": "Heavy vehicle automated toll log at Highway Plaza 14.", "conf": 0.98, "date": "2026-02-19"},
+            {"id": "e26", "src": "org_03", "tgt": "acc_03", "type": "ASSOCIATED_WITH", "rec": "REC-000109", "exp": "Commercial banking facility registered under corporate name.", "conf": 0.98, "date": "2026-02-20"},
 
-            # Additional Multi-Case Links (Case 3, Case 4, Case 5)
+            # ---------------- Case 3: Project Falcon Shield (Identity Forgery & Fake IDs) ----------------
             {"id": "e27", "src": "person_08", "tgt": "case_node_03", "type": "INVOLVED_IN", "rec": "REC-000111", "exp": "Subject of documentation examination under FIR 201/2026.", "conf": 0.91, "date": "2026-02-10"},
-            {"id": "e28", "src": "person_08", "tgt": "org_04", "type": "ASSOCIATED_WITH", "rec": "REC-000111", "exp": "Founding director of Falcon Document Solutions.", "conf": 0.99, "date": "2026-02-10"},
-            {"id": "e29", "src": "person_08", "tgt": "phone_07", "type": "OWNS_PHONE", "rec": "REC-000112", "exp": "Active communication terminal verified by billing records.", "conf": 0.99, "date": "2026-02-11"},
-            {"id": "e30", "src": "phone_07", "tgt": "phone_08", "type": "CALLED", "rec": "REC-000112", "exp": "31 repeated calls logged between Connaught Place cell coordinates.", "conf": 0.96, "date": "2026-02-15"},
-            {"id": "e31", "src": "person_09", "tgt": "phone_08", "type": "OWNS_PHONE", "rec": "REC-000112", "exp": "Subscriber registration record matches profile.", "conf": 0.98, "date": "2026-02-15"},
-            {"id": "e32", "src": "acc_03", "tgt": "acc_04", "type": "TRANSFERRED_MONEY_TO", "rec": "REC-000113", "exp": "Structured wire transfer of INR 950,000.", "conf": 1.0, "date": "2026-02-25"},
-            {"id": "e33", "src": "person_10", "tgt": "acc_04", "type": "ASSOCIATED_WITH", "rec": "REC-000113", "exp": "Account holder registration on record.", "conf": 0.99, "date": "2026-02-25"},
-            {"id": "e34", "src": "person_10", "tgt": "case_node_04", "type": "INVOLVED_IN", "rec": "REC-000113", "exp": "Transaction recipient flagged in Case FIC-CASE-0004 inquiry.", "conf": 0.92, "date": "2026-02-25"},
-            {"id": "e35", "src": "person_10", "tgt": "vehicle_04", "type": "OWNS_OR_USES", "rec": "REC-000114", "exp": "Observed driving hatchback DL-03-GH-3456 at ATM location.", "conf": 0.88, "date": "2026-02-26"},
-            {"id": "e36", "src": "person_03", "tgt": "loc_04", "type": "PRESENT_AT", "rec": "REC-000115", "exp": "Historical rental agreement and presence at Dwarka premises.", "conf": 0.90, "date": "2025-11-05"},
+            {"id": "e28", "src": "person_09", "tgt": "case_node_03", "type": "INVOLVED_IN", "rec": "REC-000112", "exp": "Identified co-associate in documentation printing operations.", "conf": 0.93, "date": "2026-02-11"},
+            {"id": "e29", "src": "person_08", "tgt": "org_04", "type": "ASSOCIATED_WITH", "rec": "REC-000111", "exp": "Founding director of Falcon Document Solutions.", "conf": 0.99, "date": "2026-02-10"},
+            {"id": "e30", "src": "person_08", "tgt": "phone_07", "type": "OWNS_PHONE", "rec": "REC-000112", "exp": "Active communication terminal verified by billing records.", "conf": 0.99, "date": "2026-02-11"},
+            {"id": "e31", "src": "phone_07", "tgt": "phone_08", "type": "CALLED", "rec": "REC-000112", "exp": "31 repeated calls logged between Connaught Place cell coordinates.", "conf": 0.96, "date": "2026-02-15"},
+            {"id": "e32", "src": "person_09", "tgt": "phone_08", "type": "OWNS_PHONE", "rec": "REC-000112", "exp": "Subscriber registration record matches profile.", "conf": 0.98, "date": "2026-02-15"},
+            {"id": "e33", "src": "org_04", "tgt": "loc_05", "type": "REGISTERED_AT", "rec": "REC-000111", "exp": "Commercial lease for office at Connaught Place.", "conf": 0.97, "date": "2026-02-10"},
+            {"id": "e34", "src": "person_08", "tgt": "vehicle_05", "type": "OWNS_OR_USES", "rec": "REC-000111", "exp": "Van utilized for transport of print equipment.", "conf": 0.89, "date": "2026-02-11"},
+
+            # ---------------- Case 4: Operation Silver Stream (ATM Cash Out & Rapid Layering) ----------------
+            {"id": "e35", "src": "person_10", "tgt": "case_node_04", "type": "INVOLVED_IN", "rec": "REC-000113", "exp": "Transaction recipient flagged in Case FIC-CASE-0004 inquiry.", "conf": 0.92, "date": "2026-02-25"},
+            {"id": "e36", "src": "person_13", "tgt": "case_node_04", "type": "INVOLVED_IN", "rec": "REC-000114", "exp": "Field cash courier observed during ATM surveillance checks.", "conf": 0.90, "date": "2026-02-26"},
+            {"id": "e37", "src": "person_10", "tgt": "acc_04", "type": "ASSOCIATED_WITH", "rec": "REC-000113", "exp": "Account holder registration on record.", "conf": 0.99, "date": "2026-02-25"},
+            {"id": "e38", "src": "acc_04", "tgt": "acc_05", "type": "TRANSFERRED_MONEY_TO", "rec": "REC-000113", "exp": "Pass-through wire to secondary mule account.", "conf": 0.98, "date": "2026-02-25"},
+            {"id": "e39", "src": "person_13", "tgt": "acc_05", "type": "ASSOCIATED_WITH", "rec": "REC-000113", "exp": "Mule account beneficiary on record.", "conf": 0.95, "date": "2026-02-25"},
+            {"id": "e40", "src": "person_10", "tgt": "vehicle_04", "type": "OWNS_OR_USES", "rec": "REC-000114", "exp": "Observed driving hatchback DL-03-GH-3456 at ATM location.", "conf": 0.88, "date": "2026-02-26"},
+            {"id": "e41", "src": "person_10", "tgt": "loc_06", "type": "PRESENT_AT", "rec": "REC-000114", "exp": "CCTV log confirming physical withdrawal at South Extension ATM.", "conf": 0.94, "date": "2026-02-26"},
+            {"id": "e42", "src": "person_10", "tgt": "phone_09", "type": "OWNS_PHONE", "rec": "REC-000113", "exp": "Mobile terminal linked to online banking transactions.", "conf": 0.97, "date": "2026-02-25"},
+
+            # ---------------- Case 5: Case Blue Horizon (Cellular SIM Gateway Box) ----------------
+            {"id": "e43", "src": "person_03", "tgt": "case_node_05", "type": "INVOLVED_IN", "rec": "REC-000115", "exp": "Named in Case 5 FIR 540/2025 regarding unauthorized cellular relay.", "conf": 0.95, "date": "2025-11-05"},
+            {"id": "e44", "src": "person_05", "tgt": "case_node_05", "type": "INVOLVED_IN", "rec": "REC-000115", "exp": "Co-lessee of premises housing 64-port SIM relay gateway.", "conf": 0.91, "date": "2025-11-05"},
+            {"id": "e45", "src": "person_15", "tgt": "case_node_05", "type": "INVOLVED_IN", "rec": "REC-000115", "exp": "Hardware technician configuring GSM antennae array.", "conf": 0.89, "date": "2025-11-06"},
+            {"id": "e46", "src": "person_03", "tgt": "loc_04", "type": "PRESENT_AT", "rec": "REC-000115", "exp": "Historical rental agreement and presence at Dwarka premises.", "conf": 0.90, "date": "2025-11-05"},
+            {"id": "e47", "src": "person_05", "tgt": "vehicle_02", "type": "OWNS_OR_USES", "rec": "REC-000115", "exp": "SUV vehicle HR-26-CD-5678 parked at safehouse.", "conf": 0.92, "date": "2025-11-05"},
+            {"id": "e48", "src": "person_03", "tgt": "phone_04", "type": "OWNS_PHONE", "rec": "REC-000115", "exp": "Command & control terminal for SIM relay setup.", "conf": 0.96, "date": "2025-11-05"},
+            {"id": "e49", "src": "phone_04", "tgt": "phone_11", "type": "CALLED", "rec": "REC-000115", "exp": "Automated heartbeat pings between SIM gateway endpoints.", "conf": 0.99, "date": "2025-11-05"},
+            {"id": "e50", "src": "person_15", "tgt": "phone_11", "type": "OWNS_PHONE", "rec": "REC-000115", "exp": "Technician endpoint registered on local tower.", "conf": 0.94, "date": "2025-11-05"},
+
+            # ---------------- Case 6: Operation Asteroid (Phishing Gateway Infrastructure) ----------------
+            {"id": "e51", "src": "person_14", "tgt": "case_node_06", "type": "INVOLVED_IN", "rec": "REC-000116", "exp": "Lead administrator for proxy phishing domains.", "conf": 0.96, "date": "2026-03-01"},
+            {"id": "e52", "src": "person_14", "tgt": "org_05", "type": "ASSOCIATED_WITH", "rec": "REC-000116", "exp": "Managing owner of Apex Tech Gateway Solutions.", "conf": 0.97, "date": "2026-03-01"},
+            {"id": "e53", "src": "person_14", "tgt": "phone_10", "type": "OWNS_PHONE", "rec": "REC-000116", "exp": "Verified WHOIS administrative contact phone number.", "conf": 0.98, "date": "2026-03-01"},
+            {"id": "e54", "src": "org_05", "tgt": "loc_07", "type": "REGISTERED_AT", "rec": "REC-000116", "exp": "Hosting gateway cluster Node 99.", "conf": 0.95, "date": "2026-03-01"},
+            {"id": "e55", "src": "person_16", "tgt": "case_node_06", "type": "INVOLVED_IN", "rec": "REC-000116", "exp": "Digital operations coordinator linked to proxy domain routing.", "conf": 0.94, "date": "2026-03-01"},
+            {"id": "e56", "src": "person_16", "tgt": "org_05", "type": "ASSOCIATED_WITH", "rec": "REC-000116", "exp": "Technical administrator on hosting infrastructure.", "conf": 0.95, "date": "2026-03-01"},
+
+            # ---------------- Inter-Case Intelligence Bridges (Syndicate Overlap) ----------------
+            {"id": "e57", "src": "acc_02", "tgt": "acc_03", "type": "TRANSFERRED_MONEY_TO", "rec": "REC-000109", "exp": "Cross-case illicit remittance: INR 2,200,000 transferred from Case 1 entity (Sunita Rao) to Case 2 carrier account (Lotus Transit).", "conf": 1.0, "date": "2026-02-20"},
+            {"id": "e58", "src": "acc_03", "tgt": "acc_04", "type": "TRANSFERRED_MONEY_TO", "rec": "REC-000113", "exp": "Cross-case rapid layering: Pass-through funds from Case 2 (Lotus Transit) structured into Case 4 mule account (Tarun Joshi).", "conf": 0.99, "date": "2026-02-25"},
+            {"id": "e59", "src": "person_08", "tgt": "person_12", "type": "LINKED_THROUGH_REPORT", "rec": "REC-000111", "exp": "Cross-case forged credential link: Falcon Document Solutions (Case 3) produced counterfeit identity documentation for Case 1 suspect alias R Sharma.", "conf": 0.92, "date": "2026-02-10"},
+            {"id": "e60", "src": "person_01", "tgt": "phone_03", "type": "CALLED", "rec": "REC-000102", "exp": "Cross-case contact bridge: Priya Verma (Case 1) maintained 22 high-frequency calls with Amit Patel's secondary terminal (Case 5).", "conf": 0.98, "date": "2026-03-01"},
+            {"id": "e61", "src": "org_05", "tgt": "phone_04", "type": "CALLED", "rec": "REC-000116", "exp": "Cross-case cyber gateway connection: Phishing domain cluster (Case 6) routed automated SMS lures through 64-port SIM relay box (Case 5).", "conf": 0.97, "date": "2026-03-01"},
         ]
 
         for rel in relationships_seed:
@@ -467,7 +538,154 @@ def seed_database(db: Session = None):
         print(f"[+] Loaded {len(relationships_seed)} graph relationships with source record traceability.")
 
         # ---------------------------------------------------------------------
-        # 6. SEED AUDIT LOGS (Genesis chain)
+        # 6. SEED EXTRACTED ENTITIES (Human-In-The-Loop Review Staging)
+        # ---------------------------------------------------------------------
+        extractions_seed = [
+            # Core Baseline Entities (Already Approved to Graph)
+            {"rec": "REC-000101", "type": "Person", "raw": "Priya Verma", "norm": "Priya Verma", "conf": 0.98, "snippet": "operated by Priya Verma and Rohit Sharma", "status": "approved"},
+            {"rec": "REC-000101", "type": "Person", "raw": "Rohit Sharma", "norm": "Rohit Sharma", "conf": 0.96, "snippet": "Priya Verma and Rohit Sharma from Sector 62", "status": "approved"},
+            {"rec": "REC-000101", "type": "Vehicle", "raw": "DL-01-AB-1234", "norm": "DL-01-AB-1234", "conf": 0.97, "snippet": "Vehicle DL-01-AB-1234 observed on premises", "status": "approved"},
+            {"rec": "REC-000102", "type": "Phone", "raw": "+9190XXXXXX01", "norm": "+9190XXXXXX01", "conf": 0.99, "snippet": "Call record extract for +9190XXXXXX01 showing 48 calls", "status": "approved"},
+            {"rec": "REC-000101", "type": "Location", "raw": "Sector 62 Noida Hub", "norm": "Sector 62 Noida", "conf": 0.96, "snippet": "premises located at Sector 62 Noida premises", "status": "approved"},
+            {"rec": "REC-000101", "type": "Organisation", "raw": "Maya Infotech Pvt Ltd", "norm": "Maya Infotech Pvt Ltd", "conf": 0.99, "snippet": "transactions through Maya Infotech Pvt Ltd", "status": "approved"},
+            {"rec": "REC-000103", "type": "BankAccount", "raw": "8899001122", "norm": "XXXX-XXXX-1122", "conf": 0.98, "snippet": "wired INR 4,500,000 from Account 8899001122", "status": "approved"},
+            {"rec": "REC-000103", "type": "BankAccount", "raw": "3344556677", "norm": "XXXX-XXXX-6677", "conf": 0.98, "snippet": "deposited into Account 3344556677 held by Sunita Rao", "status": "approved"},
+            {"rec": "REC-000106", "type": "Person", "raw": "R Sharma", "norm": "R Sharma", "conf": 0.89, "snippet": "issued under subscriber name R Sharma", "status": "approved"},
+            {"rec": "REC-000101", "type": "Person", "raw": "Rahul Sharma", "norm": "Rahul Sharma", "conf": 0.93, "snippet": "mandate records as Rahul Sharma", "status": "approved"},
+            {"rec": "REC-000107", "type": "Person", "raw": "Deepa Nair", "norm": "Deepa Nair", "conf": 0.95, "snippet": "managed by endpoint holder Deepa Nair", "status": "approved"},
+            {"rec": "REC-000111", "type": "Person", "raw": "Rajesh Gupta", "norm": "Rajesh Gupta", "conf": 0.97, "snippet": "headed by director Rajesh Gupta", "status": "approved"},
+            {"rec": "REC-000104", "type": "Vehicle", "raw": "HR-26-CD-5678", "norm": "HR-26-CD-5678", "conf": 0.95, "snippet": "operating black SUV vehicle DL-01-CD-5678", "status": "approved"},
+            {"rec": "REC-000110", "type": "Vehicle", "raw": "MH-04-EF-9012", "norm": "MH-04-EF-9012", "conf": 0.96, "snippet": "heavy vehicle MH-04-EF-9012 registered to Lotus Transit", "status": "approved"},
+            {"rec": "REC-000114", "type": "Vehicle", "raw": "DL-03-GH-3456", "norm": "DL-03-GH-3456", "conf": 0.94, "snippet": "utilizing ATM with vehicle DL-03-GH-3456", "status": "approved"},
+            {"rec": "REC-000102", "type": "Phone", "raw": "+9190XXXXXX02", "norm": "+9190XXXXXX02", "conf": 0.99, "snippet": "exchanges with +9190XXXXXX02 and +9190XXXXXX03", "status": "approved"},
+            {"rec": "REC-000108", "type": "Phone", "raw": "+9190XXXXXX05", "norm": "+9190XXXXXX05", "conf": 0.98, "snippet": "traffic between +9190XXXXXX05 and +9190XXXXXX06", "status": "approved"},
+            {"rec": "REC-000112", "type": "Phone", "raw": "+9190XXXXXX07", "norm": "+9190XXXXXX07", "conf": 0.97, "snippet": "co-location between +9190XXXXXX07 and +9190XXXXXX08", "status": "approved"},
+            {"rec": "REC-000104", "type": "Location", "raw": "Fictional Metro Plaza", "norm": "Metro Plaza", "conf": 0.94, "snippet": "visual surveillance log at Metro Plaza", "status": "approved"},
+            {"rec": "REC-000112", "type": "Location", "raw": "Connaught Place Complex", "norm": "Connaught Place", "conf": 0.95, "snippet": "coordinates at Connaught Place Hub", "status": "approved"},
+            {"rec": "REC-000109", "type": "Organisation", "raw": "Lotus Transit Logistics", "norm": "Lotus Transit Logistics", "conf": 0.98, "snippet": "registered under Lotus Transit Logistics", "status": "approved"},
+            {"rec": "REC-000111", "type": "Organisation", "raw": "Falcon Document Solutions", "norm": "Falcon Document Solutions", "conf": 0.97, "snippet": "guise of Falcon Document Solutions", "status": "approved"},
+            {"rec": "REC-000109", "type": "BankAccount", "raw": "5566778899", "norm": "XXXX-XXXX-8899", "conf": 0.97, "snippet": "remittance to Account 5566778899 registered to Lotus Transit", "status": "approved"},
+        ]
+
+        for ext in extractions_seed:
+            rec_obj = record_map.get(ext["rec"])
+            if rec_obj:
+                existing_ext = db.query(ExtractedEntity).filter(
+                    ExtractedEntity.source_record_id == rec_obj.id,
+                    ExtractedEntity.raw_value == ext["raw"]
+                ).first()
+                if not existing_ext:
+                    is_app = ext.get("status") == "approved"
+                    ee = ExtractedEntity(
+                        id=str(uuid.uuid4()),
+                        source_record_id=rec_obj.id,
+                        entity_type=ext["type"],
+                        raw_value=ext["raw"],
+                        normalized_value=ext["norm"],
+                        confidence=ext["conf"],
+                        context_snippet=ext["snippet"],
+                        status=ext.get("status", "pending"),
+                        created_at=datetime.now(timezone.utc),
+                        reviewed_by=admin_user.id if (is_app and admin_user) else None,
+                        reviewed_at=datetime.now(timezone.utc) if is_app else None,
+                    )
+                    db.add(ee)
+
+        print(f"[+] Loaded {len(extractions_seed)} staged extraction entities for review.")
+
+        # ---------------------------------------------------------------------
+        # 7. SEED ENTITY MATCH CANDIDATES
+        # ---------------------------------------------------------------------
+        # Rohit Sharma vs R Sharma
+        ge_rohit = db.query(GraphEntity).filter(GraphEntity.neo4j_node_id == "person_02").first()
+        ge_rsharma = db.query(GraphEntity).filter(GraphEntity.neo4j_node_id == "person_12").first()
+        ge_rahul = db.query(GraphEntity).filter(GraphEntity.neo4j_node_id == "person_11").first()
+
+        if ge_rohit and ge_rsharma:
+            cand1 = EntityMatchCandidate(
+                id=str(uuid.uuid4()),
+                entity_a_id=ge_rohit.id,
+                entity_b_id=ge_rsharma.id,
+                match_confidence=0.88,
+                match_reason="Initial abbreviation ('R.') matching surname 'Sharma' across FIC-CASE-0001 records.",
+                status="pending",
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(cand1)
+
+        if ge_rahul and ge_rsharma:
+            cand2 = EntityMatchCandidate(
+                id=str(uuid.uuid4()),
+                entity_a_id=ge_rahul.id,
+                entity_b_id=ge_rsharma.id,
+                match_confidence=0.92,
+                match_reason="Identical surname and initial match across bank records and subscriber invoices.",
+                status="pending",
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(cand2)
+
+        # ---------------------------------------------------------------------
+        # 8. SEED INVESTIGATION ALERTS
+        # ---------------------------------------------------------------------
+        alerts_seed = [
+            {
+                "rule_name": "SHARED_HIGH_RISK_IDENTIFIER",
+                "title": "Shared Phone Identifier: +9190XXXXXX02",
+                "description": "Phone number +9190XXXXXX02 appears connected to multiple individuals (Rohit Sharma & R Sharma) across independent case records.",
+                "severity": "HIGH",
+                "threshold": "Rule threshold: >= 2 persons connected to single Phone (Found: 2).",
+                "entities": ["phone_02", "person_02", "person_12"],
+                "records": ["REC-000102", "REC-000106"],
+            },
+            {
+                "rule_name": "HIGH_FREQUENCY_COMMUNICATION_BRIDGE",
+                "title": "Central Communications Relay Bridge: +9190XXXXXX01",
+                "description": "Central communication terminal +9190XXXXXX01 exhibits high-degree call frequency with 3+ distinct suspect endpoints during anomalous hours.",
+                "severity": "HIGH",
+                "threshold": "Rule threshold: >= 3 unique contact partners in call logs (Found: 3).",
+                "entities": ["phone_01", "phone_02", "phone_03"],
+                "records": ["REC-000102"],
+            },
+            {
+                "rule_name": "CROSS_CASE_ENTITY_OVERLAP",
+                "title": "Cross-Case Subject Linkage: Amit Patel",
+                "description": "Subject Amit Patel (person_03) identified actively operating across 2 separate inquiries (FIC-CASE-0001 and FIC-CASE-0005).",
+                "severity": "HIGH",
+                "threshold": "Rule threshold: Entity linked to >= 2 active cases (Found: 2).",
+                "entities": ["person_03", "case_node_01", "case_node_05"],
+                "records": ["REC-000101", "REC-000115"],
+            },
+            {
+                "rule_name": "CIRCULAR_WIRE_TRANSFER",
+                "title": "Multi-Account Rapid Layering Circuit: Account 8899001122",
+                "description": "Inter-bank pass-through transactions detected transferring structured funds across sequential accounts within 24 hours.",
+                "severity": "MEDIUM",
+                "threshold": "Rule threshold: Multi-hop transaction pass-through velocity >= 2 accounts (Found: 3).",
+                "entities": ["acc_01", "acc_02", "acc_03"],
+                "records": ["REC-000103", "REC-000109"],
+            },
+        ]
+
+        for al in alerts_seed:
+            existing_al = db.query(Alert).filter(Alert.title == al["title"]).first()
+            if not existing_al:
+                alt = Alert(
+                    id=str(uuid.uuid4()),
+                    rule_name=al["rule_name"],
+                    title=al["title"],
+                    description=al["description"],
+                    severity=al["severity"],
+                    threshold_description=al["threshold"],
+                    supporting_entity_ids=al["entities"],
+                    supporting_record_ids=al["records"],
+                    status="unreviewed",
+                    created_at=datetime.now(timezone.utc),
+                )
+                db.add(alt)
+
+        # ---------------------------------------------------------------------
+        # 9. SEED AUDIT LOGS (Genesis chain)
         # ---------------------------------------------------------------------
         existing_audit = db.query(AuditLog).first()
         if not existing_audit:
@@ -503,4 +721,6 @@ def seed_database(db: Session = None):
 
 
 if __name__ == "__main__":
-    seed_database()
+    import sys
+    do_reset = "--reset" in sys.argv
+    seed_database(reset=do_reset)

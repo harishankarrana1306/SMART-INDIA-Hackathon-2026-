@@ -16,7 +16,18 @@ import {
   ExecutiveCaseBrief,
 } from '../types';
 
-const API_BASE = import.meta.env?.VITE_API_URL || 'http://localhost:8000/api';
+const getApiBase = () => {
+  if (import.meta.env?.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  if (typeof window !== 'undefined' && window.location?.hostname) {
+    const host = window.location.hostname;
+    return `http://${host}:8000/api`;
+  }
+  return 'http://localhost:8000/api';
+};
+
+const API_BASE = getApiBase();
 
 class ApiClient {
   private token: string | null = null;
@@ -93,13 +104,13 @@ class ApiClient {
 
   // --- Graph Endpoints ---
   async getSubgraph(
+    caseId?: string,
     nodeType?: string,
-    search?: string,
     limit?: number
   ): Promise<SubgraphResponse> {
     const params = new URLSearchParams();
+    if (caseId && caseId !== 'ALL') params.append('case_id', caseId);
     if (nodeType && nodeType !== 'ALL') params.append('node_type', nodeType);
-    if (search) params.append('search', search);
     if (limit) params.append('limit', limit.toString());
     return this.request<SubgraphResponse>(`/graph/subgraph?${params.toString()}`);
   }
@@ -131,6 +142,13 @@ class ApiClient {
     return this.request(`/graph/reveal-sensitive/${nodeId}`, {
       method: 'POST',
       body: JSON.stringify({ reason }),
+    });
+  }
+
+  async updateNodePhoto(nodeId: string, photoUrl: string): Promise<{ status: string; node_id: string; photo_url: string }> {
+    return this.request(`/graph/node/${nodeId}/photo`, {
+      method: 'POST',
+      body: JSON.stringify({ photo_url: photoUrl }),
     });
   }
 

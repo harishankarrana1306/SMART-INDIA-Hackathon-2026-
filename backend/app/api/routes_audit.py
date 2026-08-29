@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,7 +18,7 @@ async def list_audit_logs(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     action: Optional[str] = Query(None, description="Filter by action type"),
-    current_user: User = Depends(require_role(["supervisor", "administrator"])),
+    current_user: User = Depends(require_role(["supervisor"])),
     db: AsyncSession = Depends(get_db),
 ):
     query = (
@@ -53,7 +53,7 @@ async def list_audit_logs(
 
 @router.get("/verify-chain", response_model=AuditChainVerifyResponse)
 async def verify_chain_integrity(
-    current_user: User = Depends(require_role(["supervisor", "administrator"])),
+    current_user: User = Depends(require_role(["supervisor"])),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -72,5 +72,5 @@ async def verify_chain_integrity(
         total_records=total_records,
         first_broken_seq=first_broken_seq,
         message=msg,
-        verified_at=datetime.utcnow(),
+        verified_at=datetime.now(timezone.utc),
     )

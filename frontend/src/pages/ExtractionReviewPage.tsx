@@ -1,5 +1,18 @@
-import React, { useEffect, useState } from 'react';
-import { ListFilter, RefreshCw, CheckCircle2 } from 'lucide-react';
+import React, { useEffect, useState, useMemo } from 'react';
+import {
+  ListFilter,
+  RefreshCw,
+  CheckCircle2,
+  Users,
+  Car,
+  Phone,
+  MapPin,
+  Building2,
+  CreditCard,
+  Layers,
+  Search,
+  CheckCheck,
+} from 'lucide-react';
 import { api } from '../api/client';
 import { ExtractedEntity } from '../types';
 import ExtractionTable from '../components/extraction/ExtractionTable';
@@ -9,13 +22,33 @@ import DisclaimerBanner from '../components/common/DisclaimerBanner';
 
 interface ExtractionReviewPageProps {
   initialRecordId?: string;
+  onNavigateToGraph?: (caseCode?: string, nodeIdOrName?: string) => void;
 }
 
-export const ExtractionReviewPage: React.FC<ExtractionReviewPageProps> = ({ initialRecordId }) => {
+interface CategoryConfig {
+  id: string;
+  label: string;
+  types: string[];
+  icon: React.ComponentType<{ className?: string }>;
+  color: string;
+}
+
+const CATEGORIES: CategoryConfig[] = [
+  { id: 'ALL', label: 'All Entities', types: [], icon: Layers, color: 'text-[#9C6644] bg-[#9C6644]/10 border-[#9C6644]/20' },
+  { id: 'NAMES', label: 'Names / Persons', types: ['Person'], icon: Users, color: 'text-[#4F46E5] bg-[#EEF2FF] border-[#C7D2FE]' },
+  { id: 'VEHICLES', label: 'Vehicles', types: ['Vehicle'], icon: Car, color: 'text-[#D97706] bg-[#FEF3C7] border-[#FDE68A]' },
+  { id: 'PHONES', label: 'Phone Numbers', types: ['Phone'], icon: Phone, color: 'text-[#7C3AED] bg-[#F5F3FF] border-[#DDD6FE]' },
+  { id: 'LOCATIONS', label: 'Locations', types: ['Location'], icon: MapPin, color: 'text-[#0284C7] bg-[#E0F2FE] border-[#BAE6FD]' },
+  { id: 'ORGANISATIONS', label: 'Organizations', types: ['Organisation'], icon: Building2, color: 'text-[#9333EA] bg-[#FAF5FF] border-[#E9D5FF]' },
+  { id: 'FINANCIAL', label: 'Financial Information', types: ['BankAccount', 'Amount', 'Transaction'], icon: CreditCard, color: 'text-[#0D9488] bg-[#CCFBF1] border-[#99F6E4]' },
+];
+
+export const ExtractionReviewPage: React.FC<ExtractionReviewPageProps> = ({ initialRecordId, onNavigateToGraph }) => {
   const [entities, setEntities] = useState<ExtractedEntity[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>('pending');
-  const [typeFilter, setTypeFilter] = useState<string>('ALL');
+  const [activeCategory, setActiveCategory] = useState<string>('ALL');
+  const [searchTerm, setSearchTerm] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [editingEntity, setEditingEntity] = useState<ExtractedEntity | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
@@ -25,8 +58,7 @@ export const ExtractionReviewPage: React.FC<ExtractionReviewPageProps> = ({ init
     try {
       const data = await api.listExtractedEntities({
         record_id: initialRecordId,
-        status: statusFilter,
-        entity_type: typeFilter,
+        status: statusFilter === 'ALL' ? undefined : statusFilter,
       });
       setEntities(data);
       setSelectedIds([]);
@@ -39,12 +71,46 @@ export const ExtractionReviewPage: React.FC<ExtractionReviewPageProps> = ({ init
 
   useEffect(() => {
     fetchEntities();
-  }, [statusFilter, typeFilter, initialRecordId]);
+    const handleReload = () => fetchEntities();
+    window.addEventListener('netra-data-reloaded', handleReload);
+    return () => window.removeEventListener('netra-data-reloaded', handleReload);
+  }, [statusFilter, initialRecordId]);
 
   const showFeedback = (msg: string) => {
     setNotification(msg);
-    setTimeout(() => setNotification(null), 3500);
+    setTimeout(() => setNotification(null), 4500);
   };
+
+  // Compute category counts dynamically
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { ALL: entities.length };
+    CATEGORIES.forEach((cat) => {
+      if (cat.id !== 'ALL') {
+        counts[cat.id] = entities.filter((e) => cat.types.includes(e.entity_type)).length;
+      }
+    });
+    return counts;
+  }, [entities]);
+
+  // Filter entities by active category and search term
+  const filteredEntities = useMemo(() => {
+    let list = entities;
+    const cat = CATEGORIES.find((c) => c.id === activeCategory);
+    if (cat && cat.id !== 'ALL' && cat.types.length > 0) {
+      list = list.filter((e) => cat.types.includes(e.entity_type));
+    }
+    if (searchTerm.trim()) {
+      const q = searchTerm.toLowerCase();
+      list = list.filter(
+        (e) =>
+          e.normalized_value.toLowerCase().includes(q) ||
+          e.raw_value.toLowerCase().includes(q) ||
+          (e.context_snippet && e.context_snippet.toLowerCase().includes(q)) ||
+          (e.record_code && e.record_code.toLowerCase().includes(q))
+      );
+    }
+    return list;
+  }, [entities, activeCategory, searchTerm]);
 
   const handleToggleSelect = (id: string) => {
     setSelectedIds((prev) =>
@@ -53,68 +119,82 @@ export const ExtractionReviewPage: React.FC<ExtractionReviewPageProps> = ({ init
   };
 
   const handleSelectAll = () => {
-    const pending = entities.filter((e) => e.status === 'pending');
-    if (pending.every((e) => selectedIds.includes(e.id))) {
+    const pendingInView = filteredEntities.filter((e) => e.status === 'pending');
+    if (pendingInView.every((e) => selectedIds.includes(e.id))) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(pending.map((e) => e.id));
+      setSelectedIds(pendingInView.map((e) => e.id));
     }
   };
 
   const handleApprove = async (id: string) => {
     try {
+      setEntities((prev) => prev.filter((e) => e.id !== id));
+      setSelectedIds((prev) => prev.filter((i) => i !== id));
       await api.approveEntity(id);
-      showFeedback('Entity approved and synchronized to graph canvas.');
+      showFeedback('Entity approved, added to graph canvas, and removed from review staging.');
       fetchEntities();
     } catch (e) {
       console.error('Approval failed:', e);
+      fetchEntities();
     }
   };
 
   const handleCorrectSave = async (id: string, normalizedVal: string, entityType: string, reason?: string) => {
     try {
+      setEntities((prev) => prev.filter((e) => e.id !== id));
+      setSelectedIds((prev) => prev.filter((i) => i !== id));
       await api.correctEntity(id, normalizedVal, entityType, reason);
       setEditingEntity(null);
-      showFeedback('Entity corrected, approved, and synchronized to graph canvas.');
+      showFeedback('Entity corrected, approved to graph, and removed from review staging.');
       fetchEntities();
     } catch (e) {
       console.error('Correction failed:', e);
+      fetchEntities();
     }
   };
 
   const handleReject = async (id: string) => {
     try {
+      setEntities((prev) => prev.filter((e) => e.id !== id));
+      setSelectedIds((prev) => prev.filter((i) => i !== id));
       await api.rejectEntity(id);
-      showFeedback('Entity marked as rejected.');
+      showFeedback('Entity rejected and removed from staging queue.');
       fetchEntities();
     } catch (e) {
       console.error('Rejection failed:', e);
+      fetchEntities();
     }
   };
 
   const handleBatchApprove = async () => {
+    const idsToApprove = [...selectedIds];
+    if (idsToApprove.length === 0) return;
     try {
-      await api.batchApproveEntities(selectedIds);
-      showFeedback(`Batch approved ${selectedIds.length} entities to knowledge graph.`);
+      setEntities((prev) => prev.filter((e) => !idsToApprove.includes(e.id)));
+      setSelectedIds([]);
+      await api.batchApproveEntities(idsToApprove);
+      showFeedback(`Batch approved ${idsToApprove.length} entities to knowledge graph (removed from pending queue).`);
       fetchEntities();
     } catch (e) {
       console.error('Batch approval failed:', e);
+      fetchEntities();
     }
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6 animate-fadeIn">
+    <div className="p-8 max-w-7xl mx-auto space-y-6 animate-fadeIn text-[#2C241D]">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-brand-border shadow-sm">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-[#E5DACB] shadow-sm">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <ListFilter className="w-5 h-5 text-brand-purple" />
-            <h2 className="text-lg font-bold text-slate-900 tracking-tight">
+            <ListFilter className="w-5 h-5 text-[#9C6644]" />
+            <h2 className="text-lg font-bold text-[#2C241D] tracking-tight">
               Human-in-the-Loop Extraction Review Staging
             </h2>
           </div>
-          <p className="text-xs text-brand-muted max-w-2xl">
-            Review and verify NLP-extracted entities before graph insertion. Approve valid entities, correct typos or categories, or reject hallucinations to ensure 100% evidentiary integrity.
+          <p className="text-xs text-[#7D7268] max-w-3xl">
+            Review and verify extracted information dynamically organized by data type. Approve valid entities, correct identifiers, or reject extractions with full evidentiary source document linkage.
           </p>
         </div>
 
@@ -122,7 +202,7 @@ export const ExtractionReviewPage: React.FC<ExtractionReviewPageProps> = ({ init
           <button
             type="button"
             onClick={fetchEntities}
-            className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all"
+            className="p-2.5 bg-[#F5EFE6] hover:bg-[#EAE1D5] text-[#43382F] rounded-xl transition-all border border-[#E5DACB] cursor-pointer"
             title="Refresh staged queue"
           >
             <RefreshCw className="w-4 h-4" />
@@ -130,83 +210,125 @@ export const ExtractionReviewPage: React.FC<ExtractionReviewPageProps> = ({ init
         </div>
       </div>
 
-      {/* Notification Toast */}
+      {/* Notification Toast with Graph Jump Action */}
       {notification && (
-        <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl text-xs font-semibold flex items-center gap-2 animate-fadeIn">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-          <span>{notification}</span>
+        <div className="p-3.5 bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-2xl text-xs font-semibold flex items-center justify-between gap-3 animate-fadeIn shadow-sm">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+            <span>{notification}</span>
+          </div>
+          {onNavigateToGraph && (
+            <button
+              type="button"
+              onClick={() => onNavigateToGraph('FIC-CASE-0001')}
+              className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer flex-shrink-0"
+            >
+              <span>View in Network Graph</span>
+              <span>→</span>
+            </button>
+          )}
         </div>
       )}
 
-      {/* Filter Toolbar */}
-      <div className="bg-white p-4 rounded-2xl border border-brand-border shadow-sm flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          {/* Status Tabs */}
-          <div className="flex items-center space-x-1 p-1 bg-slate-100 rounded-xl">
-            {['pending', 'approved', 'rejected', 'ALL'].map((st) => (
-              <button
-                key={st}
-                type="button"
-                onClick={() => setStatusFilter(st)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition-all ${
-                  statusFilter === st
-                    ? 'bg-white text-brand-purple shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {st === 'ALL' ? 'All Records' : st}
-              </button>
-            ))}
+      {/* Dynamic Entity Category Selector Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
+        {CATEGORIES.map((cat) => {
+          const Icon = cat.icon;
+          const count = categoryCounts[cat.id] || 0;
+          const isSelected = activeCategory === cat.id;
+
+          return (
+            <button
+              key={cat.id}
+              type="button"
+              onClick={() => setActiveCategory(cat.id)}
+              className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between cursor-pointer ${
+                isSelected
+                  ? 'bg-[#9C6644] text-white border-[#9C6644] shadow-md shadow-[#9C6644]/25'
+                  : 'bg-white border-[#E5DACB] text-[#43382F] hover:bg-[#F5EFE6]'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <Icon className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-[#8C827A]'}`} />
+                <span
+                  className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full ${
+                    isSelected ? 'bg-white/20 text-white' : 'bg-[#F5EFE6] text-[#5C5248] border border-[#E5DACB]'
+                  }`}
+                >
+                  {count}
+                </span>
+              </div>
+              <span className={`text-xs font-bold leading-tight ${isSelected ? 'text-white' : 'text-[#2C241D]'}`}>
+                {cat.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Search & Bulk Action Bar */}
+      <div className="p-4 bg-white rounded-3xl border border-[#E5DACB] shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto flex-1">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#8C827A]" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search entity value, snippet, or FIR..."
+              className="w-full pl-9 pr-4 py-2 bg-[#F5EFE6]/60 border border-[#E5DACB] rounded-xl text-xs text-[#2C241D] placeholder-[#9C9288] focus:outline-none focus:border-[#9C6644] focus:ring-1 focus:ring-[#9C6644]"
+            />
           </div>
 
-          {/* Entity Type Filter */}
-          <div className="flex items-center space-x-2">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Type:</span>
+          <div className="flex items-center gap-2 text-xs font-medium text-[#7D7268]">
+            <span>Status:</span>
             <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-brand-purple"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-1.5 bg-[#F5EFE6]/60 border border-[#E5DACB] rounded-xl text-xs font-semibold text-[#2C241D] focus:outline-none focus:border-[#9C6644]"
             >
-              <option value="ALL">All Categories</option>
-              <option value="Person">Person</option>
-              <option value="Phone">Phone</option>
-              <option value="Vehicle">Vehicle</option>
-              <option value="Location">Location</option>
-              <option value="Organisation">Organisation</option>
-              <option value="BankAccount">Bank Account</option>
-              <option value="Case">Case</option>
-              <option value="Date">Date</option>
+              <option value="pending">Pending Review Only</option>
+              <option value="approved">Approved Extractions</option>
+              <option value="corrected">Corrected Entities</option>
+              <option value="rejected">Rejected Items</option>
+              <option value="ALL">All Records</option>
             </select>
           </div>
         </div>
 
-        <span className="text-xs font-mono text-slate-500">
-          {entities.length} Staged Extractions
-        </span>
+        {selectedIds.length > 0 && (
+          <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+            <span className="text-xs font-bold text-[#9C6644]">
+              {selectedIds.length} Selected
+            </span>
+            <button
+              type="button"
+              onClick={handleBatchApprove}
+              className="px-4 py-2 bg-[#9C6644] hover:bg-[#7F4F24] text-white text-xs font-semibold rounded-xl transition-all shadow-md shadow-[#9C6644]/25 flex items-center gap-1.5 cursor-pointer"
+            >
+              <CheckCheck className="w-4 h-4" />
+              <span>Batch Approve ({selectedIds.length})</span>
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Table Content */}
+      {/* Main Extraction Review Table */}
       {isLoading ? (
-        <LoadingState message="Loading staged entities from NLP parser..." />
-      ) : entities.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-brand-border p-12 text-center text-xs text-brand-muted space-y-2">
-          <p className="font-semibold text-slate-700">No staged entities in this filter view.</p>
-          <p>Upload new FIR or CDR documents in the Ingestion pipeline to extract entities.</p>
-        </div>
+        <LoadingState message="Filtering staged extractions..." />
       ) : (
         <ExtractionTable
-          entities={entities}
+          entities={filteredEntities}
           selectedIds={selectedIds}
           onToggleSelect={handleToggleSelect}
           onSelectAll={handleSelectAll}
           onApprove={handleApprove}
-          onCorrect={(ent) => setEditingEntity(ent)}
           onReject={handleReject}
-          onBatchApprove={handleBatchApprove}
+          onEdit={(entity) => setEditingEntity(entity)}
         />
       )}
 
-      {/* Correction Modal */}
+      {/* Human-in-the-Loop Correction Modal */}
       {editingEntity && (
         <EntityCorrectionModal
           entity={editingEntity}
@@ -215,7 +337,7 @@ export const ExtractionReviewPage: React.FC<ExtractionReviewPageProps> = ({ init
         />
       )}
 
-      {/* Disclaimer */}
+      {/* Mandatory Disclaimer */}
       <DisclaimerBanner variant="light" />
     </div>
   );

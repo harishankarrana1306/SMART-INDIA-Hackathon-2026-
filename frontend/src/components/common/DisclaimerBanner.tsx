@@ -16,12 +16,12 @@ export const DisclaimerBanner: React.FC<DisclaimerBannerProps> = ({
     <div
       className={`w-full py-2 px-4 rounded-xl flex items-center justify-center gap-2.5 text-xs font-medium border shadow-sm transition-all ${
         isDark
-          ? 'bg-[#111322]/95 border-amber-500/30 text-amber-300 backdrop-blur-md'
-          : 'bg-amber-50/90 border-amber-200 text-amber-900'
+          ? 'bg-[#1C1917]/95 border-[#DDA15E]/30 text-[#DDA15E] backdrop-blur-md'
+          : 'bg-[#FEF6E9] border-[#FCE4BE] text-[#7F4F24]'
       } ${className}`}
     >
-      <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
-      <span className="tracking-wide">
+      <AlertTriangle className="w-4 h-4 text-[#DDA15E] flex-shrink-0" />
+      <span className="tracking-wide text-[11px]">
         <strong>Decision-support only.</strong> Not a determination of guilt or risk. All findings require human investigator review.
       </span>
     </div>

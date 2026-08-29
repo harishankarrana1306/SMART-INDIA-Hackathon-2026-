@@ -109,27 +109,38 @@ class ExtractionService:
             },
         )
 
-        # 5. If linked to a case, establish case relationship in graph
-        if case_id and source_rec:
-            case_res = await db.execute(select(Case).where(Case.id == case_id))
+        # 5. Establish canonical case relationship in knowledge graph
+        target_case_node = "case_node_01"
+        rec_code = source_rec.record_code if source_rec else "REC-000101"
+        rec_type = source_rec.source_type if source_rec else "fir"
+        rec_title = source_rec.title if source_rec else "Investigative Document"
+
+        if case_id:
+            case_res = await db.execute(select(Case).where((Case.id == case_id) | (Case.case_code == case_id)))
             case_obj = case_res.scalar_one_or_none()
             if case_obj:
-                case_node_id = f"case_{case_obj.case_code.lower().replace('-', '_')}"
-                edge_id = f"e_sync_{extraction_id}_{case_id}"
-                neo4j_service.mock_store.add_edge(
-                    edge_id=edge_id,
-                    source=neo4j_id,
-                    target=case_node_id,
-                    rel_type="LINKED_THROUGH_REPORT",
-                    properties={
-                        "source_record_id": source_rec.record_code,
-                        "source_record_type": source_rec.source_type,
-                        "explanation": f"Extracted from {source_rec.title} ({source_rec.record_code}) and verified by investigator.",
-                        "confidence": float(item.confidence) if item.confidence else 0.9,
-                        "date": str(source_rec.ingested_at.date()) if source_rec.ingested_at else "2026-08-24",
-                        "raw_source_snippet": item.context_snippet or item.raw_value,
-                    },
-                )
+                c_code = case_obj.case_code.lower()
+                for nid in ["case_node_01", "case_node_02", "case_node_03", "case_node_04", "case_node_05", "case_node_06"]:
+                    idx_str = nid.split("_")[-1]
+                    if f"000{int(idx_str)}" in c_code or f"0{int(idx_str)}" in c_code or f"case {int(idx_str)}" in c_code:
+                        target_case_node = nid
+                        break
+
+        edge_id = f"e_sync_{extraction_id}_{target_case_node}"
+        neo4j_service.mock_store.add_edge(
+            edge_id=edge_id,
+            source_id=neo4j_id,
+            target_id=target_case_node,
+            rel_type="LINKED_THROUGH_REPORT",
+            properties={
+                "source_record_id": rec_code,
+                "source_record_type": rec_type,
+                "explanation": f"Extracted from {rec_title} ({rec_code}) and verified by investigator.",
+                "confidence": float(item.confidence) if item.confidence else 0.9,
+                "date": str(source_rec.ingested_at.date()) if source_rec and source_rec.ingested_at else "2026-08-24",
+                "raw_source_snippet": item.context_snippet or item.raw_value,
+            },
+        )
 
         # 6. Cryptographic Audit Log
         await record_audit_log(

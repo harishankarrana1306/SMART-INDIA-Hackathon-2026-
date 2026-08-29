@@ -37,15 +37,15 @@ export const EntityCorrectionModal: React.FC<EntityCorrectionModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 border border-brand-border animate-fadeIn">
-        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-          <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <Edit3 className="w-5 h-5 text-brand-purple" />
+      <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-5 border border-[#E5DACB] animate-fadeIn text-[#2C241D]">
+        <div className="flex items-center justify-between border-b border-[#E5DACB] pb-3">
+          <h3 className="text-base font-bold text-[#2C241D] flex items-center gap-2">
+            <Edit3 className="w-5 h-5 text-[#9C6644]" />
             Correct & Approve Extracted Entity
           </h3>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-700 transition-colors"
+            className="p-1 rounded-xl text-[#8C827A] hover:text-[#2C241D] transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -54,8 +54,8 @@ export const EntityCorrectionModal: React.FC<EntityCorrectionModalProps> = ({
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">
           {/* Raw Text Snippet Context */}
           {entity.context_snippet && (
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-slate-700">
-              <span className="block text-[10px] uppercase font-bold text-slate-500 mb-1">
+            <div className="p-3 bg-[#F5EFE6] rounded-2xl border border-[#E5DACB] text-[#43382F]">
+              <span className="block text-[10px] uppercase font-bold text-[#8C827A] mb-1">
                 Extracted Context Window:
               </span>
               <p className="italic font-serif">"{entity.context_snippet}"</p>
@@ -64,34 +64,34 @@ export const EntityCorrectionModal: React.FC<EntityCorrectionModalProps> = ({
 
           {/* Raw Text */}
           <div>
-            <label className="block text-slate-500 font-semibold mb-1">Raw Extracted Text:</label>
+            <label className="block text-[#7D7268] font-semibold mb-1">Raw Extracted Text:</label>
             <input
               type="text"
               value={entity.raw_value}
               disabled
-              className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 font-mono cursor-not-allowed"
+              className="w-full px-3 py-2 bg-[#F5EFE6]/60 border border-[#E5DACB] rounded-xl text-[#7D7268] font-mono cursor-not-allowed"
             />
           </div>
 
           {/* Normalized Value Input */}
           <div>
-            <label className="block text-slate-800 font-bold mb-1">Normalized / Corrected Value:</label>
+            <label className="block text-[#2C241D] font-bold mb-1">Normalized / Corrected Value:</label>
             <input
               type="text"
               value={normalizedVal}
               onChange={(e) => setNormalizedVal(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-medium focus:outline-none focus:border-brand-purple focus:ring-1 focus:ring-brand-purple"
+              className="w-full px-3 py-2 bg-[#F5EFE6]/40 border border-[#E5DACB] rounded-xl text-[#2C241D] font-semibold focus:outline-none focus:border-[#9C6644] focus:ring-1 focus:ring-[#9C6644]"
               required
             />
           </div>
 
           {/* Entity Type Select */}
           <div>
-            <label className="block text-slate-800 font-bold mb-1">Entity Category Type:</label>
+            <label className="block text-[#2C241D] font-bold mb-1">Entity Category Type:</label>
             <select
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value as EntityType)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-brand-purple"
+              className="w-full px-3 py-2 bg-[#F5EFE6]/40 border border-[#E5DACB] rounded-xl text-[#2C241D] font-semibold focus:outline-none focus:border-[#9C6644]"
             >
               {ENTITY_TYPES.map((t) => (
                 <option key={t} value={t}>
@@ -101,32 +101,36 @@ export const EntityCorrectionModal: React.FC<EntityCorrectionModalProps> = ({
             </select>
           </div>
 
-          {/* Correction Reason */}
+          {/* Reason for Correction */}
           <div>
-            <label className="block text-slate-800 font-bold mb-1">Investigator Audit Note:</label>
+            <label className="block text-[#2C241D] font-bold mb-1">
+              Investigator Correction Rationale:
+            </label>
             <input
               type="text"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-brand-purple"
+              placeholder="e.g. Standardized formatting of bank account or phone"
+              className="w-full px-3 py-2 bg-[#F5EFE6]/40 border border-[#E5DACB] rounded-xl text-[#2C241D] focus:outline-none focus:border-[#9C6644]"
+              required
             />
           </div>
 
           {/* Modal Actions */}
-          <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
+          <div className="flex items-center justify-end space-x-3 pt-3 border-t border-[#E5DACB]">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition-all"
+              className="px-4 py-2 bg-[#F5EFE6] hover:bg-[#EAE1D5] text-[#5C5248] border border-[#E5DACB] rounded-xl font-semibold transition-all cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-5 py-2 bg-brand-purple hover:bg-brand-purple-light text-white font-bold rounded-xl shadow-md shadow-brand-purple/20 transition-all flex items-center gap-1.5"
+              className="px-5 py-2 bg-[#9C6644] hover:bg-[#7F4F24] text-white rounded-xl font-bold shadow-md shadow-[#9C6644]/25 transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <Check className="w-4 h-4" />
-              <span>Correct & Approve to Graph</span>
+              <span>Approve Corrected Entity</span>
             </button>
           </div>
         </form>

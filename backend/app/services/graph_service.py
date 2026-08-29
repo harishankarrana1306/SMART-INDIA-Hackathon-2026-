@@ -81,8 +81,18 @@ class GraphService:
         limit: int = 100
     ) -> GraphSubgraphResponse:
         if neo4j_service.is_connected:
-            query = "MATCH (n)-[r]->(m) RETURN n, labels(n) as n_labels, r, type(r) as r_type, m, labels(m) as m_labels LIMIT $limit"
-            records = neo4j_service.run_query(query, {"limit": limit})
+            if case_id and case_id.lower() != "all":
+                query = """
+                MATCH (c:Case) WHERE toLower(c.case_code) CONTAINS toLower($case_id) OR c.id = $case_id
+                MATCH path = (c)-[*1..2]-(m)
+                UNWIND relationships(path) as r
+                RETURN startNode(r) as n, labels(startNode(r)) as n_labels, r, type(r) as r_type, endNode(r) as m, labels(endNode(r)) as m_labels LIMIT $limit
+                """
+                records = neo4j_service.run_query(query, {"case_id": case_id, "limit": limit})
+            else:
+                query = "MATCH (n)-[r]->(m) RETURN n, labels(n) as n_labels, r, type(r) as r_type, m, labels(m) as m_labels LIMIT $limit"
+                records = neo4j_service.run_query(query, {"limit": limit})
+
             nodes_dict = {}
             edges_list = []
             for rec in records:
@@ -116,7 +126,16 @@ class GraphService:
                 total_edges=len(edges_list),
             )
         else:
-            sub = neo4j_service.mock_store.get_all_subgraph(limit=limit)
+            if case_id and case_id.lower() != "all":
+                # Resolve case_id if a UUID or alternative identifier was passed
+                c_query = select(Case).where((Case.id == case_id) | (Case.case_code == case_id))
+                c_res = await db.execute(c_query)
+                c_obj = c_res.scalar_one_or_none()
+                target_case = c_obj.case_code if c_obj else case_id
+                sub = neo4j_service.mock_store.get_case_subgraph(case_id=target_case, limit=limit)
+            else:
+                sub = neo4j_service.mock_store.get_all_subgraph(limit=limit)
+
             nodes = [
                 GraphNode(id=n["id"], label=n["label"], properties=n["properties"])
                 for n in sub["nodes"]

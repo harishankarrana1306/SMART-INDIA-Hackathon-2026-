@@ -1,4 +1,5 @@
 from typing import Optional, List
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.postgres import get_db
@@ -149,3 +150,51 @@ async def reveal_sensitive_field(
         "audited": True,
         "disclaimer": "Decision-support only. Not a determination of guilt or risk. All findings require human investigator review.",
     }
+
+
+class NodePhotoRequest(BaseModel):
+    photo_url: str
+
+
+@router.post("/node/{node_id}/photo")
+async def update_node_photo(
+    node_id: str,
+    payload: NodePhotoRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Persistently stores person dossier photo in mock_store and GraphEntity PostgreSQL record.
+    """
+    from app.db.neo4j_driver import neo4j_service
+    from app.models.entity import GraphEntity
+    from sqlalchemy import select
+
+    # 1. Update in-memory graph store
+    mock_store = getattr(neo4j_service, "mock_store", None)
+    if mock_store and node_id in mock_store.nodes:
+        mock_store.nodes[node_id]["properties"]["photo_url"] = payload.photo_url
+
+    # 2. Update in PostgreSQL GraphEntity
+    ge_res = await db.execute(select(GraphEntity).where(GraphEntity.neo4j_node_id == node_id))
+    ge = ge_res.scalar_one_or_none()
+    if ge:
+        props = dict(ge.properties_json or {})
+        if payload.photo_url:
+            props["photo_url"] = payload.photo_url
+        else:
+            props.pop("photo_url", None)
+        ge.properties_json = props
+
+    await write_audit_log(
+        db=db,
+        action="update_dossier_photo",
+        user_id=current_user.id,
+        target_type="graph_node",
+        target_id=node_id,
+        metadata={"photo_updated": bool(payload.photo_url)},
+    )
+    await db.commit()
+
+    return {"status": "success", "node_id": node_id, "photo_url": payload.photo_url}
+

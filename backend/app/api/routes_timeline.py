@@ -14,7 +14,7 @@ router = APIRouter(prefix="/timeline", tags=["Timeline"])
 @router.get("", response_model=TimelineResponse)
 async def get_event_timeline(
     entity_id: Optional[str] = Query(None),
-    case_id: Optional[int] = Query(None),
+    case_id: Optional[str] = Query(None),
     from_date: Optional[str] = Query(None),
     to_date: Optional[str] = Query(None),
     event_type: Optional[str] = Query(None),

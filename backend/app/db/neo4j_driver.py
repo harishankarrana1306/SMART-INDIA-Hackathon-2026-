@@ -1,5 +1,6 @@
 import logging
 from typing import Dict, Any, List, Optional
+# pyrefly: ignore [missing-import]
 from neo4j import GraphDatabase, Driver
 from app.config import settings
 
@@ -29,16 +30,28 @@ class MockGraphStore:
             "properties": props
         }
 
-    def add_edge(self, edge_id: str, source_id: str, target_id: str, rel_type: str, properties: Dict[str, Any]):
-        props = dict(properties)
+    def add_edge(
+        self,
+        edge_id: str,
+        source_id: Optional[str] = None,
+        target_id: Optional[str] = None,
+        rel_type: str = "RELATED_TO",
+        properties: Optional[Dict[str, Any]] = None,
+        source: Optional[str] = None,
+        target: Optional[str] = None,
+        **kwargs,
+    ):
+        src = source_id or source or kwargs.get("src", "")
+        tgt = target_id or target or kwargs.get("tgt", "")
+        props = dict(properties or {})
         props["id"] = edge_id
         props["type"] = rel_type
         self.edges[edge_id] = {
             "id": edge_id,
-            "source": source_id,
-            "target": target_id,
+            "source": src,
+            "target": tgt,
             "type": rel_type,
-            "properties": props
+            "properties": props,
         }
 
     def get_nodes(self, node_type: Optional[str] = None, search: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -86,6 +99,95 @@ class MockGraphStore:
 
         nodes_res = [self.nodes[nid] for nid in visited_nodes if nid in self.nodes]
         edges_res = list(found_edges.values())
+        return {"nodes": nodes_res, "edges": edges_res}
+
+    def get_case_subgraph(self, case_id: str, limit: int = 100) -> Dict[str, Any]:
+        """Returns the isolated subgraph for a specific case plus its inter-case syndicate bridges."""
+        if not case_id or case_id.upper() == "ALL":
+            return self.get_all_subgraph(limit=limit)
+
+        c_lower = case_id.lower().strip()
+
+        # Case definition mappings
+        case_records_map = {
+            1: ["REC-000101", "REC-000102", "REC-000103", "REC-000104", "REC-000106"],
+            2: ["REC-000107", "REC-000108", "REC-000109", "REC-000110"],
+            3: ["REC-000111", "REC-000112"],
+            4: ["REC-000113", "REC-000114"],
+            5: ["REC-000115", "REC-000105"],
+            6: ["REC-000116"],
+        }
+
+        case_idx = None
+        if any(k in c_lower for k in ["0001", "maya", "case_node_01", "fic-case-0001"]) or c_lower in ["case 1", "1"]:
+            case_idx = 1
+        elif any(k in c_lower for k in ["0002", "lotus", "case_node_02", "fic-case-0002"]) or c_lower in ["case 2", "2"]:
+            case_idx = 2
+        elif any(k in c_lower for k in ["0003", "falcon", "case_node_03", "fic-case-0003"]) or c_lower in ["case 3", "3"]:
+            case_idx = 3
+        elif any(k in c_lower for k in ["0004", "silver", "case_node_04", "fic-case-0004"]) or c_lower in ["case 4", "4"]:
+            case_idx = 4
+        elif any(k in c_lower for k in ["0005", "horizon", "blue", "case_node_05", "fic-case-0005"]) or c_lower in ["case 5", "5"]:
+            case_idx = 5
+        elif any(k in c_lower for k in ["0006", "asteroid", "case_node_06", "fic-case-0006"]) or c_lower in ["case 6", "6"]:
+            case_idx = 6
+
+        target_case_node_id = f"case_node_0{case_idx}" if case_idx else None
+        if not target_case_node_id:
+            for nid, node in self.nodes.items():
+                props = node.get("properties", {})
+                code = str(props.get("case_code", "")).lower()
+                name = str(props.get("name", "")).lower()
+                if c_lower == nid.lower() or c_lower == code or c_lower in name:
+                    target_case_node_id = nid
+                    break
+
+        case_edges = {}
+        case_node_ids = set()
+
+        if target_case_node_id and target_case_node_id in self.nodes:
+            case_node_ids.add(target_case_node_id)
+
+        target_records = set(case_records_map.get(case_idx, []))
+
+        # Collect internal case edges
+        for eid, edge in self.edges.items():
+            props = edge.get("properties", {})
+            rec_id = str(props.get("source_record_id", "")).upper()
+            src = edge["source"]
+            tgt = edge["target"]
+
+            is_case_edge = False
+            if target_case_node_id and (src == target_case_node_id or tgt == target_case_node_id):
+                is_case_edge = True
+            elif rec_id and rec_id in target_records:
+                is_case_edge = True
+            elif c_lower in rec_id.lower():
+                is_case_edge = True
+
+            if is_case_edge:
+                case_edges[eid] = edge
+                case_node_ids.add(src)
+                case_node_ids.add(tgt)
+
+        # Include direct 1-hop cross-case bridge connections so investigator sees how cases interconnect
+        for eid, edge in self.edges.items():
+            if eid in case_edges:
+                continue
+            src = edge["source"]
+            tgt = edge["target"]
+            if (src in case_node_ids and tgt in self.nodes) or (tgt in case_node_ids and src in self.nodes):
+                # Inter-case link
+                case_edges[eid] = edge
+                case_node_ids.add(src)
+                case_node_ids.add(tgt)
+
+        if not case_node_ids:
+            return {"nodes": [], "edges": []}
+
+        nodes_res = [self.nodes[nid] for nid in case_node_ids if nid in self.nodes][:limit]
+        valid_nids = {n["id"] for n in nodes_res}
+        edges_res = [e for e in case_edges.values() if e["source"] in valid_nids and e["target"] in valid_nids]
         return {"nodes": nodes_res, "edges": edges_res}
 
     def get_all_subgraph(self, limit: int = 100) -> Dict[str, Any]:

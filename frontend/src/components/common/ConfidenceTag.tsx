@@ -11,22 +11,22 @@ export const ConfidenceTag: React.FC<ConfidenceTagProps> = ({
 }) => {
   const percentage = Math.round(score * 100);
 
-  let colorClasses = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+  let colorClasses = 'bg-[#EAF5EF] text-[#2D7A58] border-[#D0EADB]';
   let level = 'High link confidence';
 
   if (score < 0.6) {
-    colorClasses = 'bg-amber-50 text-amber-700 border-amber-200';
+    colorClasses = 'bg-[#FEF6E9] text-[#9C6644] border-[#FCE4BE]';
     level = 'Moderate link confidence';
   } else if (score < 0.3) {
-    colorClasses = 'bg-slate-50 text-slate-700 border-slate-200';
+    colorClasses = 'bg-[#F5EFE6] text-[#7D7268] border-[#E5DACB]';
     level = 'Insufficient evidence';
   }
 
   return (
     <div
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-medium ${colorClasses} ${className}`}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[11px] font-bold ${colorClasses} ${className}`}
     >
-      <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+      <span className="w-1.5 h-1.5 rounded-full bg-current" />
       <span>{level} ({percentage}%)</span>
     </div>
   );

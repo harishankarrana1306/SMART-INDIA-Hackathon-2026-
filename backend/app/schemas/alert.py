@@ -16,7 +16,14 @@ class AlertSchema(BaseModel):
     description: str
     severity: str  # HIGH, MEDIUM, LOW
     threshold_description: Optional[str] = None
-    supporting_entity_ids: List[Dict[str, Any]] = []
+    entity_id: Optional[str] = None
+    entity_name: Optional[str] = None
+    entity_type: Optional[str] = None
+    risk_indicator: Optional[str] = None
+    connections_count: Optional[int] = None
+    related_entities: List[Any] = []
+    cases: List[str] = []
+    supporting_entity_ids: List[Any] = []
     supporting_record_ids: List[str] = []
     status: str  # unreviewed, acknowledged, dismissed, investigating
     reviewed_by: Optional[str] = None

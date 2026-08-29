@@ -1,0 +1,14 @@
+{
+  "include": [
+    "backend",
+    "verify_v2_live.py",
+    "verify_phase2_live.py",
+    "verify_phase3_live.py"
+  ],
+  "extraPaths": [
+    "backend"
+  ],
+  "venvPath": ".",
+  "venv": ".venv",
+  "pythonVersion": "3.12"
+}

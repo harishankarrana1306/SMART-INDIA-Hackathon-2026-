@@ -35,7 +35,10 @@ async def list_match_candidates(
     )
 
     results = []
-    for cand, e1, e2 in candidates_data:
+    for item in candidates_data:
+        cand = item["candidate"]
+        e1 = item["entity_a"]
+        e2 = item["entity_b"]
         results.append(
             EntityMatchCandidateSchema(
                 id=cand.id,
@@ -57,6 +60,13 @@ async def list_match_candidates(
                     properties=e2.properties_json or {},
                     is_masked_sensitive=e2.is_masked_sensitive,
                 ),
+                name_variations=item.get("name_variations", [e1.display_name, e2.display_name]),
+                cases=item.get("cases", []),
+                associated_phones=item.get("associated_phones", []),
+                associated_vehicles=item.get("associated_vehicles", []),
+                associated_locations=item.get("associated_locations", []),
+                other_identifiers=item.get("other_identifiers", []),
+                supporting_evidence=item.get("supporting_evidence", []),
                 match_confidence=float(cand.match_confidence) if cand.match_confidence else 0.85,
                 match_reason=cand.match_reason or "Automated entity similarity",
                 status=cand.status,
@@ -69,7 +79,7 @@ async def list_match_candidates(
 
 @router.post("/generate", response_model=GenerateCandidatesResponse)
 async def generate_resolution_candidates(
-    current_user: User = Depends(require_role(["supervisor", "administrator"])),
+    current_user: User = Depends(require_role(["investigator", "supervisor"])),
     db: AsyncSession = Depends(get_db),
 ):
     """Scans entities and generates new probabilistic match candidates."""
@@ -83,10 +93,10 @@ async def generate_resolution_candidates(
 @router.post("/{id}/approve", response_model=MergeApprovalResponse)
 async def approve_entity_merge(
     id: str,
-    current_user: User = Depends(require_role(["supervisor", "administrator"])),
+    current_user: User = Depends(require_role(["investigator", "supervisor"])),
     db: AsyncSession = Depends(get_db),
 ):
-    """Approves duplicate entity merge (restricted to Supervisor / Admin)."""
+    """Approves duplicate entity match and redirects graph relationships."""
     try:
         cand = await ResolutionService.approve_merge(db, id, current_user)
         return MergeApprovalResponse(
@@ -107,13 +117,14 @@ async def reject_entity_match(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Rejects an entity match candidate proposal."""
+    """Rejects an entity match candidate proposal and keeps entities separate."""
     try:
         cand = await ResolutionService.reject_candidate(db, id, current_user, payload.reason)
         return MatchRejectResponse(
             candidate_id=cand.id,
             status=cand.status,
-            message="Entity match candidate rejected.",
+            message="Entity match candidate rejected. Entities will remain separate in graph.",
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+

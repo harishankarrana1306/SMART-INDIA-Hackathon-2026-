@@ -55,17 +55,20 @@ export const AuditPage: React.FC = () => {
 
   useEffect(() => {
     fetchAuditLogs();
+    const handleReload = () => fetchAuditLogs();
+    window.addEventListener('netra-data-reloaded', handleReload);
+    return () => window.removeEventListener('netra-data-reloaded', handleReload);
   }, [selectedAction]);
 
   const getActionBadge = (action: string) => {
     const map: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
-      login: { bg: 'bg-purple-100 border-purple-200', text: 'text-purple-800', icon: <KeyRound className="w-3 h-3" /> },
-      search: { bg: 'bg-sky-100 border-sky-200', text: 'text-sky-800', icon: <Search className="w-3 h-3" /> },
-      record_view: { bg: 'bg-indigo-100 border-indigo-200', text: 'text-indigo-800', icon: <Eye className="w-3 h-3" /> },
-      reveal_sensitive: { bg: 'bg-amber-100 border-amber-200', text: 'text-amber-800', icon: <Shield className="w-3 h-3" /> },
-      seed_data: { bg: 'bg-emerald-100 border-emerald-200', text: 'text-emerald-800', icon: <Database className="w-3 h-3" /> },
+      login: { bg: 'bg-[#FEF6E9] border-[#FCE4BE]', text: 'text-[#9C6644]', icon: <KeyRound className="w-3 h-3" /> },
+      search: { bg: 'bg-[#EBF2FA] border-[#D4E3F5]', text: 'text-[#4A6FA5]', icon: <Search className="w-3 h-3" /> },
+      record_view: { bg: 'bg-[#F3ECF8] border-[#E3D4ED]', text: 'text-[#7B5294]', icon: <Eye className="w-3 h-3" /> },
+      reveal_sensitive: { bg: 'bg-[#FEF3C7] border-[#FDE68A]', text: 'text-[#D97706]', icon: <Shield className="w-3 h-3" /> },
+      seed_data: { bg: 'bg-[#EAF5EF] border-[#D0EADB]', text: 'text-[#2D7A58]', icon: <Database className="w-3 h-3" /> },
     };
-    const c = map[action] || { bg: 'bg-slate-100 border-slate-200', text: 'text-slate-700', icon: <FileText className="w-3 h-3" /> };
+    const c = map[action] || { bg: 'bg-[#F5EFE6] border-[#E5DACB]', text: 'text-[#5C5248]', icon: <FileText className="w-3 h-3" /> };
     return (
       <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${c.bg} ${c.text}`}>
         {c.icon}
@@ -77,12 +80,12 @@ export const AuditPage: React.FC = () => {
   // RBAC Access Restriction View
   if (user?.role === 'investigator') {
     return (
-      <div className="p-8 max-w-4xl mx-auto text-center space-y-4">
-        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 inline-flex flex-col items-center">
-          <Lock className="w-10 h-10 text-amber-500 mb-2" />
+      <div className="p-8 max-w-4xl mx-auto text-center space-y-4 text-[#2C241D]">
+        <div className="p-6 rounded-3xl bg-[#FEF6E9] border border-[#FCE4BE] text-[#7F4F24] inline-flex flex-col items-center shadow-sm">
+          <Lock className="w-10 h-10 text-[#9C6644] mb-2" />
           <h2 className="text-lg font-bold">Role-Based Access Restriction</h2>
-          <p className="text-xs text-amber-800 mt-1 max-w-md">
-            Cryptographic audit chain verification and tamper-evident logs are restricted to <strong>Supervisor</strong> and <strong>Administrator</strong> roles to safeguard chain-of-custody.
+          <p className="text-xs text-[#7D7268] mt-1 max-w-md">
+            Cryptographic audit chain verification and tamper-evident logs are restricted to <strong>Supervisor</strong> role to safeguard chain-of-custody.
           </p>
         </div>
       </div>
@@ -90,26 +93,43 @@ export const AuditPage: React.FC = () => {
   }
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8 animate-fadeIn">
+    <div className="p-8 max-w-7xl mx-auto space-y-8 animate-fadeIn text-[#2C241D]">
       {/* Page Header & Verification Trigger */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-brand-border shadow-sm">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-[#E5DACB] shadow-sm">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <ShieldCheck className="w-5 h-5 text-brand-purple" />
-            <h2 className="text-lg font-bold text-slate-900 tracking-tight">
-              Tamper-Evident SHA-256 Audit Chain
+            <ShieldCheck className="w-5 h-5 text-[#9C6644]" />
+            <h2 className="text-lg font-bold text-[#2C241D] tracking-tight">
+              Tamper-Proof SHA-256 Audit Chain
             </h2>
           </div>
-          <p className="text-xs text-brand-muted max-w-2xl">
+          <p className="text-xs text-[#7D7268] max-w-2xl">
             Append-only cryptographic ledger tracking all investigator actions. Hash chaining guarantees non-repudiation and evidence integrity.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                await api.loadDemoData();
+                window.dispatchEvent(new CustomEvent('netra-data-reloaded'));
+                fetchAuditLogs();
+              } catch (e) {
+                console.error('Failed to reload demo data:', e);
+              }
+            }}
+            className="px-3.5 py-2.5 bg-[#FAF7F2] hover:bg-[#F5EFE6] text-[#7A4B27] text-xs font-bold rounded-xl border border-[#D8CBB9] transition-all flex items-center gap-2 cursor-pointer shadow-xs"
+            title="Supervisor Action: Clear session modifications and restore canonical prototype data"
+          >
+            <RefreshCw className="w-3.5 h-3.5 text-[#9C6644]" />
+            <span>Reload Sample Data</span>
+          </button>
           <button
             type="button"
             onClick={fetchAuditLogs}
-            className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all"
+            className="p-2.5 bg-[#F5EFE6] hover:bg-[#EAE1D5] text-[#43382F] rounded-xl transition-all border border-[#E5DACB] cursor-pointer"
             title="Refresh logs"
           >
             <RefreshCw className="w-4 h-4" />
@@ -118,30 +138,30 @@ export const AuditPage: React.FC = () => {
             type="button"
             onClick={handleVerifyChain}
             disabled={isVerifying}
-            className="px-4 py-2.5 bg-brand-purple hover:bg-brand-purple-light text-white text-xs font-semibold rounded-xl shadow-lg shadow-brand-purple/25 transition-all flex items-center gap-2"
+            className="px-4 py-2.5 bg-[#9C6644] hover:bg-[#7F4F24] text-white text-xs font-semibold rounded-xl shadow-md shadow-[#9C6644]/25 transition-all flex items-center gap-2 cursor-pointer"
           >
             {isVerifying ? (
               <RefreshCw className="w-4 h-4 animate-spin" />
             ) : (
               <ShieldCheck className="w-4 h-4" />
             )}
-            <span>Verify Cryptographic Chain</span>
+            <span>Verify Audit Integrity</span>
           </button>
         </div>
       </div>
 
-      {/* Verification Status Card (If run) */}
+      {/* Verification Status Card */}
       {verification && (
         <div
-          className={`p-5 rounded-2xl border transition-all animate-fadeIn ${
+          className={`p-5 rounded-3xl border transition-all animate-fadeIn ${
             verification.valid
-              ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950'
-              : 'bg-rose-50/80 border-rose-200 text-rose-950'
+              ? 'bg-[#EAF5EF] border-[#D0EADB] text-[#1E523A]'
+              : 'bg-[#FCEEED] border-[#F8D5D2] text-[#8C2318]'
           }`}
         >
           <div className="flex items-start justify-between">
             <div className="flex items-start space-x-3">
-              <div className={`p-2 rounded-xl ${verification.valid ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+              <div className={`p-2 rounded-2xl ${verification.valid ? 'bg-emerald-200 text-emerald-800' : 'bg-rose-200 text-rose-800'}`}>
                 {verification.valid ? (
                   <CheckCircle2 className="w-6 h-6" />
                 ) : (
@@ -169,17 +189,17 @@ export const AuditPage: React.FC = () => {
       )}
 
       {/* Audit Log Table Container */}
-      <div className="bg-white rounded-2xl border border-brand-border shadow-sm overflow-hidden">
+      <div className="bg-white rounded-3xl border border-[#E5DACB] shadow-sm overflow-hidden">
         {/* Table Filters Header */}
-        <div className="p-4 border-b border-brand-border bg-slate-50/60 flex items-center justify-between">
+        <div className="p-4 border-b border-[#E5DACB] bg-[#F5EFE6] flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#7D7268]">
               Filter Action:
             </span>
             <select
               value={selectedAction}
               onChange={(e) => setSelectedAction(e.target.value)}
-              className="px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-brand-purple"
+              className="px-3 py-1.5 text-xs bg-white border border-[#E5DACB] rounded-xl text-[#2C241D] font-semibold focus:outline-none focus:border-[#9C6644]"
             >
               <option value="ALL">All Actions</option>
               <option value="login">Login</option>
@@ -190,7 +210,7 @@ export const AuditPage: React.FC = () => {
             </select>
           </div>
 
-          <span className="text-xs font-mono text-slate-500">
+          <span className="text-xs font-mono font-semibold text-[#7D7268]">
             {logs.length} Sequential Blocks Loaded
           </span>
         </div>
@@ -199,56 +219,54 @@ export const AuditPage: React.FC = () => {
         {isLoading ? (
           <LoadingState message="Loading cryptographic ledger..." />
         ) : logs.length === 0 ? (
-          <div className="p-12 text-center text-xs text-brand-muted">
+          <div className="p-12 text-center text-xs text-[#7D7268]">
             No audit logs match current filter.
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-brand-border bg-slate-50/90 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  <th className="py-3 px-4">Seq #</th>
-                  <th className="py-3 px-4">Action</th>
-                  <th className="py-3 px-4">User</th>
-                  <th className="py-3 px-4">Target</th>
-                  <th className="py-3 px-4">Timestamp</th>
-                  <th className="py-3 px-4">SHA-256 Digest</th>
-                  <th className="py-3 px-4 text-right">Block Inspector</th>
+                <tr className="border-b border-[#E5DACB] bg-[#F5EFE6] text-[11px] font-bold uppercase tracking-wider text-[#5C5248]">
+                  <th className="py-3.5 px-4">Seq #</th>
+                  <th className="py-3.5 px-4">Action</th>
+                  <th className="py-3.5 px-4">User</th>
+                  <th className="py-3.5 px-4">Target</th>
+                  <th className="py-3.5 px-4">Timestamp</th>
+                  <th className="py-3.5 px-4">SHA-256 Digest</th>
+                  <th className="py-3.5 px-4 text-right">Block Inspector</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-brand-border/60 text-xs text-slate-800">
+              <tbody className="divide-y divide-[#E5DACB]/60 text-xs text-[#2C241D]">
                 {logs.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3 px-4 font-mono font-bold text-brand-purple">
+                  <tr
+                    key={log.id}
+                    className="hover:bg-[#F5EFE6]/50 transition-colors"
+                  >
+                    <td className="py-3.5 px-4 font-mono font-bold text-[#9C6644]">
                       #{log.seq_no}
                     </td>
-                    <td className="py-3 px-4">{getActionBadge(log.action)}</td>
-                    <td className="py-3 px-4 font-semibold text-slate-900">
-                      {log.username || 'System'}
+                    <td className="py-3.5 px-4">
+                      {getActionBadge(log.action)}
                     </td>
-                    <td className="py-3 px-4">
-                      {log.target_type ? (
-                        <span className="font-mono text-slate-600">
-                          {log.target_type} {log.target_id ? `(${log.target_id})` : ''}
-                        </span>
-                      ) : (
-                        <span className="text-slate-400">—</span>
-                      )}
+                    <td className="py-3.5 px-4 font-semibold text-[#2C241D]">
+                      {log.username || (log.user_id ? log.user_id.slice(0, 8) : 'system')}
                     </td>
-                    <td className="py-3 px-4 font-mono text-[11px] text-slate-500 whitespace-nowrap">
+                    <td className="py-3.5 px-4 font-mono text-[#5C5248]">
+                      {log.target_type || 'system'}: {log.target_id ? log.target_id.slice(0, 12) : 'N/A'}
+                    </td>
+                    <td className="py-3.5 px-4 font-mono text-[#7D7268] text-[11px]">
                       {new Date(log.timestamp).toLocaleString()}
                     </td>
-                    <td className="py-3 px-4 font-mono text-[11px] text-slate-500">
-                      <span className="truncate block max-w-[120px]" title={log.record_hash}>
-                        {log.record_hash.slice(0, 10)}...{log.record_hash.slice(-6)}
-                      </span>
+                    <td className="py-3.5 px-4 font-mono text-[11px] text-[#8C827A] max-w-[140px] truncate" title={log.record_hash}>
+                      {log.record_hash ? `${log.record_hash.slice(0, 16)}...` : 'N/A'}
                     </td>
-                    <td className="py-3 px-4 text-right">
+                    <td className="py-3.5 px-4 text-right">
                       <button
+                        type="button"
                         onClick={() => setSelectedLog(log)}
-                        className="px-2.5 py-1 text-xs font-semibold bg-slate-100 hover:bg-brand-purple hover:text-white rounded-lg transition-all border border-slate-200"
+                        className="px-2.5 py-1 bg-[#F5EFE6] hover:bg-[#EAE1D5] text-[#9C6644] rounded-lg text-xs font-semibold border border-[#E5DACB] transition-all cursor-pointer"
                       >
-                        Inspect
+                        Inspect Hash
                       </button>
                     </td>
                   </tr>
@@ -261,45 +279,38 @@ export const AuditPage: React.FC = () => {
 
       {/* Block Inspector Modal */}
       {selectedLog && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 border border-brand-border">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <Hash className="w-5 h-5 text-brand-purple" />
-                Cryptographic Block #{selectedLog.seq_no} Inspector
-              </h3>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-[#E5DACB] p-6 max-w-lg w-full space-y-4 shadow-2xl animate-fadeIn">
+            <div className="flex items-center justify-between border-b border-[#E5DACB] pb-3">
+              <div className="flex items-center gap-2">
+                <Hash className="w-5 h-5 text-[#9C6644]" />
+                <h3 className="text-base font-bold text-[#2C241D]">
+                  Audit Block #{selectedLog.seq_no}
+                </h3>
+              </div>
               <button
+                type="button"
                 onClick={() => setSelectedLog(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700"
+                className="text-[#8C827A] hover:text-[#2C241D] text-lg font-bold p-1"
               >
                 ✕
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div className="p-3 bg-slate-50 rounded-xl border space-y-2">
-                <div>
-                  <span className="text-slate-500 block mb-0.5 font-semibold uppercase text-[10px]">Previous Block Hash (prev_hash):</span>
-                  <span className="font-mono text-[11px] text-slate-700 break-all">{selectedLog.prev_hash}</span>
-                </div>
-                <div className="border-t pt-2">
-                  <span className="text-slate-500 block mb-0.5 font-semibold uppercase text-[10px]">Computed Record Hash (record_hash):</span>
-                  <span className="font-mono text-[11px] text-brand-purple font-bold break-all">{selectedLog.record_hash}</span>
-                </div>
-              </div>
-
-              <div>
-                <span className="text-slate-500 block mb-1 font-semibold uppercase text-[10px]">Block Payload Metadata:</span>
-                <pre className="p-3 bg-slate-900 text-emerald-400 rounded-xl font-mono text-[11px] overflow-x-auto max-h-48">
-                  {JSON.stringify(selectedLog.metadata_json || {}, null, 2)}
-                </pre>
-              </div>
+            <div className="space-y-3 text-xs font-mono bg-[#F5EFE6] p-4 rounded-2xl border border-[#E5DACB] overflow-x-auto">
+              <div><span className="text-[#8C827A]">Action: </span><strong>{selectedLog.action}</strong></div>
+              <div><span className="text-[#8C827A]">User ID: </span><span>{selectedLog.user_id || 'system'}</span></div>
+              <div><span className="text-[#8C827A]">Target Type: </span><span>{selectedLog.target_type || 'N/A'}</span></div>
+              <div><span className="text-[#8C827A]">Target ID: </span><span>{selectedLog.target_id || 'N/A'}</span></div>
+              <div><span className="text-[#8C827A]">Previous Block Hash: </span><span className="break-all text-[#5C5248]">{selectedLog.prev_hash}</span></div>
+              <div><span className="text-[#8C827A]">Record Block Hash: </span><span className="break-all text-[#9C6644] font-bold">{selectedLog.record_hash}</span></div>
             </div>
 
-            <div className="pt-2 flex justify-end">
+            <div className="flex justify-end pt-2">
               <button
+                type="button"
                 onClick={() => setSelectedLog(null)}
-                className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-semibold hover:bg-slate-800"
+                className="px-4 py-2 bg-[#9C6644] hover:bg-[#7F4F24] text-white text-xs font-semibold rounded-xl cursor-pointer"
               >
                 Close Inspector
               </button>
@@ -308,7 +319,7 @@ export const AuditPage: React.FC = () => {
         </div>
       )}
 
-      {/* Disclaimer */}
+      {/* Mandatory Disclaimer */}
       <DisclaimerBanner variant="light" />
     </div>
   );

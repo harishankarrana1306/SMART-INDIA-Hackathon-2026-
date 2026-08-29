@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import String, Boolean, DateTime, Text, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
@@ -22,7 +22,7 @@ class CaseBrief(Base):
     active_alerts_json: Mapped[dict] = mapped_column("active_alerts", JSON, nullable=True)
     custody_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     generated_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
-    generated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    generated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     is_synthetic: Mapped[bool] = mapped_column(Boolean, default=True)
 
     case = relationship("Case", foreign_keys=[case_id], backref="briefs")

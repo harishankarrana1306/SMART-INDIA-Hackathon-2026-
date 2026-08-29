@@ -18,6 +18,13 @@ class EntityMatchCandidateSchema(BaseModel):
     entity_b_id: str
     entity_a: MatchCandidateEntityInfo
     entity_b: MatchCandidateEntityInfo
+    name_variations: List[str] = []
+    cases: List[str] = []
+    associated_phones: List[str] = []
+    associated_vehicles: List[str] = []
+    associated_locations: List[str] = []
+    other_identifiers: List[str] = []
+    supporting_evidence: List[str] = []
     match_confidence: float
     match_reason: str
     status: str  # pending, merged, rejected

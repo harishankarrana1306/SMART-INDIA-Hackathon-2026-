@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import String, DateTime, Text, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
@@ -24,6 +24,6 @@ class Alert(Base):
     reviewed_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
     reviewed_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     review_notes: Mapped[str] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     reviewer = relationship("User", foreign_keys=[reviewed_by], backref="reviewed_alerts")

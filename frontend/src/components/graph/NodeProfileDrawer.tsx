@@ -1,5 +1,22 @@
 import React from 'react';
-import { X, Network, FolderGit2, FileText, ArrowUpRight, Shield, Expand, Calendar, MapPin, Loader2 } from 'lucide-react';
+import {
+  X,
+  Network,
+  FolderGit2,
+  FileText,
+  ArrowUpRight,
+  Shield,
+  Expand,
+  Calendar,
+  MapPin,
+  Loader2,
+  Clock,
+  Maximize2,
+  User,
+  Camera,
+  Upload,
+  Trash2,
+} from 'lucide-react';
 import { NodeProfile } from '../../types';
 import Badge from '../common/Badge';
 import MaskedValue from '../common/MaskedValue';
@@ -10,6 +27,9 @@ interface NodeProfileDrawerProps {
   onClose: () => void;
   onExpand: (nodeId: string, depth: number) => void;
   onSelectEntity: (entityId: string) => void;
+  onNavigateToTimeline?: (entityName: string) => void;
+  onResetFocus?: () => void;
+  onUpdatePhoto?: (nodeId: string, photoUrl: string) => void;
   isLoading?: boolean;
 }
 
@@ -18,36 +38,53 @@ export const NodeProfileDrawer: React.FC<NodeProfileDrawerProps> = ({
   onClose,
   onExpand,
   onSelectEntity,
+  onNavigateToTimeline,
+  onResetFocus,
+  onUpdatePhoto,
   isLoading = false,
 }) => {
   if (!profile) return null;
 
-  const isSensitive = profile.label.toLowerCase() === 'phone' || profile.label.toLowerCase().includes('account');
+  const isSensitive =
+    profile.label.toLowerCase() === 'phone' || profile.label.toLowerCase().includes('account');
+  const isPerson = profile.label.toLowerCase() === 'person';
+  const currentPhoto = profile.properties?.photo_url;
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && onUpdatePhoto) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          onUpdatePhoto(profile.id, event.target.result as string);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   return (
-    <div className="w-96 bg-white border-l border-brand-border h-full flex flex-col shadow-2xl z-20 overflow-y-auto animate-slideLeft">
+    <div className="w-96 bg-[#F5EFE6] border-l border-[#E5DACB] h-full flex flex-col shadow-2xl z-20 overflow-y-auto animate-slideLeft text-[#2C241D]">
       {/* Drawer Header */}
-      <div className="p-5 border-b border-brand-border bg-slate-50/70 flex items-start justify-between">
+      <div className="p-5 border-b border-[#E5DACB] bg-[#EAE1D5] flex items-start justify-between">
         <div>
           <div className="flex items-center gap-2 mb-1.5">
             <Badge label={profile.label} variant="purple" />
             {profile.properties?.is_synthetic && (
-              <span className="text-[10px] uppercase tracking-wider font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+              <span className="text-[10px] uppercase tracking-wider font-semibold text-[#2D7A58] bg-[#EAF5EF] px-2 py-0.5 rounded border border-[#D0EADB]">
                 Synthetic Record
               </span>
             )}
-            {isLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-purple" />}
+            {isLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-[#9C6644]" />}
           </div>
-          <h2 className="text-lg font-bold text-slate-900 tracking-tight">
+          <h2 className="text-lg font-bold text-[#2C241D] tracking-tight">
             {profile.display_name}
           </h2>
-          <p className="text-xs font-mono text-slate-500 mt-0.5">
-            Entity ID: {profile.id}
-          </p>
+          <p className="text-xs font-mono text-[#7D7268] mt-0.5">Entity ID: {profile.id}</p>
         </div>
         <button
           onClick={onClose}
-          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-all"
+          className="p-1.5 rounded-xl text-[#7D7268] hover:text-[#2C241D] hover:bg-[#D8CBB9] transition-all cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
@@ -55,173 +92,233 @@ export const NodeProfileDrawer: React.FC<NodeProfileDrawerProps> = ({
 
       {/* Drawer Content */}
       <div className="p-5 space-y-6 flex-1">
-        {/* Quick Expand Action */}
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => onExpand(profile.id, 2)}
-            className="flex-1 py-2 px-3 bg-brand-purple hover:bg-brand-purple-light text-white text-xs font-medium rounded-xl shadow-md shadow-brand-purple/20 transition-all flex items-center justify-center gap-2"
-          >
-            <Expand className="w-3.5 h-3.5" />
-            <span>Expand 2nd-Degree Network</span>
-          </button>
+        {/* Quick Investigative Actions */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => onExpand(profile.id, 2)}
+              className="flex-1 py-2 px-3 bg-[#9C6644] hover:bg-[#7F4F24] text-white text-xs font-semibold rounded-xl shadow-md shadow-[#9C6644]/25 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <Expand className="w-3.5 h-3.5" />
+              <span>Expand 2-Hop Network</span>
+            </button>
+
+            {onResetFocus && (
+              <button
+                type="button"
+                onClick={onResetFocus}
+                className="py-2 px-3 bg-white hover:bg-[#EAE1D5] text-[#2C241D] text-xs font-semibold rounded-xl border border-[#E5DACB] transition-all flex items-center justify-center gap-1 cursor-pointer"
+                title="Full Case View"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span>Full Case</span>
+              </button>
+            )}
+          </div>
+
+          {onNavigateToTimeline && isPerson && (
+            <button
+              type="button"
+              onClick={() => onNavigateToTimeline(profile.display_name)}
+              className="w-full py-2 px-3 bg-[#FAF7F2] hover:bg-[#EAE1D5] text-[#8A5A36] text-xs font-semibold rounded-xl border border-[#D5C7B8] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span>Trace Timeline Activity</span>
+            </button>
+          )}
         </div>
 
-        {/* Entity Attributes & Privacy Masking */}
-        <div>
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
-            <Shield className="w-3.5 h-3.5 text-brand-purple" />
-            Entity Attributes & Identifiers
+        {/* Entity Dossier Photo for Suspects / Persons */}
+        {isPerson && (
+          <div className="p-4 bg-white rounded-2xl border border-[#E5DACB] shadow-xs space-y-3">
+            <h3 className="text-xs font-bold text-[#5A4D41] uppercase tracking-wider flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <User className="w-3.5 h-3.5 text-[#9C6644]" />
+                Dossier Identity Photo
+              </span>
+              {currentPhoto && (
+                <span className="text-[10px] text-[#2D7A58] font-semibold bg-[#EAF5EF] px-1.5 py-0.5 rounded">
+                  Active Photo
+                </span>
+              )}
+            </h3>
+
+            <div className="flex items-center gap-4">
+              <div className="relative w-20 h-20 rounded-2xl bg-[#F5EFE6] border-2 border-[#D8CBB9] overflow-hidden flex items-center justify-center flex-shrink-0 shadow-inner group">
+                {currentPhoto ? (
+                  <img
+                    src={currentPhoto}
+                    alt={profile.display_name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <User className="w-8 h-8 text-[#A89F91]" />
+                )}
+
+                {/* Hover overlay for changing photo */}
+                {onUpdatePhoto && (
+                  <label
+                    htmlFor="photo-upload-input"
+                    className="absolute inset-0 bg-black/40 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-[9px] font-semibold text-center p-1"
+                  >
+                    <Camera className="w-4 h-4 mb-0.5" />
+                    <span>Upload</span>
+                  </label>
+                )}
+              </div>
+
+              <div className="flex-1 space-y-1.5 text-xs">
+                <p className="text-[11px] text-[#7D7268] leading-tight">
+                  Upload a photo to instantly display this suspect's avatar directly inside the Cytoscape graph nodes.
+                </p>
+
+                <div className="flex items-center gap-2 pt-1">
+                  {onUpdatePhoto && (
+                    <>
+                      <input
+                        type="file"
+                        id="photo-upload-input"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleFileUpload}
+                      />
+                      <label
+                        htmlFor="photo-upload-input"
+                        className="px-2.5 py-1 bg-[#9C6644] hover:bg-[#7F4F24] text-white text-xs font-semibold rounded-lg shadow-xs transition-all flex items-center gap-1 cursor-pointer"
+                      >
+                        <Upload className="w-3 h-3" />
+                        <span>{currentPhoto ? 'Change Photo' : 'Upload Photo'}</span>
+                      </label>
+
+                      {currentPhoto && (
+                        <button
+                          type="button"
+                          onClick={() => onUpdatePhoto(profile.id, '')}
+                          className="p-1 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                          title="Remove photo"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Properties / Attributes */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold text-[#5A4D41] uppercase tracking-wider">
+            Entity Properties
           </h3>
-          <div className="bg-slate-50/80 rounded-xl p-3.5 border border-slate-200/80 space-y-2.5 text-xs">
-            {isSensitive ? (
-              <div>
-                <span className="text-slate-500 block mb-1">Masked Identifier:</span>
-                <MaskedValue
-                  nodeId={profile.id}
-                  value={profile.display_name}
-                  entityType={profile.label}
-                  isSensitive={true}
-                />
-              </div>
-            ) : (
-              <div>
-                <span className="text-slate-500 block mb-0.5">Primary Identifier:</span>
-                <span className="font-semibold text-slate-900">{profile.display_name}</span>
-              </div>
-            )}
+          <div className="bg-white rounded-2xl border border-[#E5DACB] p-4 space-y-2.5 shadow-xs">
+            {Object.entries(profile.properties || {}).map(([key, val]) => {
+              if (key === 'photo_url') return null;
+              return (
+                <div key={key} className="flex justify-between items-start text-xs border-b border-[#F5EFE6] pb-2 last:border-0 last:pb-0">
+                  <span className="text-[#7D7268] capitalize font-medium">
+                    {key.replace(/_/g, ' ')}
+                  </span>
+                  <span className="font-semibold text-[#2C241D] text-right max-w-[180px] break-words">
+                    {isSensitive && (key.includes('number') || key.includes('account')) ? (
+                      <MaskedValue value={String(val)} isSensitive={true} />
+                    ) : (
+                      String(val)
+                    )}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
-            {profile.properties?.dob && (
-              <div className="flex items-center justify-between border-t border-slate-200/60 pt-2">
-                <span className="text-slate-500 flex items-center gap-1">
-                  <Calendar className="w-3 h-3 text-slate-400" /> Date of Birth:
-                </span>
-                <span className="font-mono text-slate-800">{profile.properties.dob}</span>
-              </div>
-            )}
+        {/* Connected Entities */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-[#5A4D41] uppercase tracking-wider flex items-center gap-1.5">
+              <Network className="w-3.5 h-3.5 text-[#9C6644]" />
+              Connected Entities ({profile.connected_entities.length})
+            </h3>
+          </div>
 
-            {profile.properties?.vehicle_type && (
-              <div className="flex items-center justify-between border-t border-slate-200/60 pt-2">
-                <span className="text-slate-500">Vehicle Type:</span>
-                <span className="font-medium text-slate-800">{profile.properties.vehicle_type}</span>
+          <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+            {profile.connected_entities.map((conn) => (
+              <div
+                key={conn.id}
+                onClick={() => onSelectEntity(conn.id)}
+                className="p-3 bg-white hover:bg-[#FAF7F2] rounded-xl border border-[#E5DACB] transition-all cursor-pointer flex items-center justify-between group shadow-2xs"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="text-[9px] uppercase font-mono px-1.5 py-0.5 bg-[#F5EFE6] text-[#7D7268] rounded border border-[#E5DACB]">
+                      {conn.label}
+                    </span>
+                    <span className="text-[10px] text-[#9C6644] font-semibold truncate">
+                      {conn.relationship_type.replace(/_/g, ' ')}
+                    </span>
+                  </div>
+                  <p className="text-xs font-bold text-[#2C241D] group-hover:text-[#9C6644] truncate">
+                    {conn.display_name}
+                  </p>
+                </div>
+                <ArrowUpRight className="w-4 h-4 text-[#A89F91] group-hover:text-[#9C6644] transition-colors" />
               </div>
-            )}
-
-            {profile.properties?.bank_name && (
-              <div className="flex items-center justify-between border-t border-slate-200/60 pt-2">
-                <span className="text-slate-500">Financial Institution:</span>
-                <span className="font-medium text-slate-800">{profile.properties.bank_name}</span>
-              </div>
-            )}
-
-            {profile.properties?.lat && profile.properties?.lng && (
-              <div className="flex items-center justify-between border-t border-slate-200/60 pt-2">
-                <span className="text-slate-500 flex items-center gap-1">
-                  <MapPin className="w-3 h-3 text-slate-400" /> Geo Coordinates:
-                </span>
-                <span className="font-mono text-slate-800">
-                  {profile.properties.lat}, {profile.properties.lng}
-                </span>
-              </div>
-            )}
+            ))}
           </div>
         </div>
 
         {/* Linked Cases */}
-        <div>
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
-            <FolderGit2 className="w-3.5 h-3.5 text-amber-500" />
-            Associated Case Files ({profile.linked_cases?.length || 0})
-          </h3>
-          {profile.linked_cases && profile.linked_cases.length > 0 ? (
+        {profile.linked_cases.length > 0 && (
+          <div className="space-y-3">
+            <h3 className="text-xs font-bold text-[#5A4D41] uppercase tracking-wider flex items-center gap-1.5">
+              <FolderGit2 className="w-3.5 h-3.5 text-[#9C6644]" />
+              Associated Cases ({profile.linked_cases.length})
+            </h3>
             <div className="space-y-2">
-              {profile.linked_cases.map((c) => (
-                <div
-                  key={c.id}
-                  className="p-3 bg-amber-50/50 rounded-xl border border-amber-200/60 text-xs"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold font-mono text-amber-900">{c.case_code}</span>
-                    <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-amber-100 text-amber-800">
-                      {c.status}
+              {profile.linked_cases.map((cs) => (
+                <div key={cs.id} className="p-3 bg-white rounded-xl border border-[#E5DACB] shadow-2xs">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-mono font-bold text-[#9C6644]">{cs.case_code}</span>
+                    <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-[#FAF7F2] text-[#7D7268] border border-[#E5DACB] font-semibold">
+                      {cs.status}
                     </span>
                   </div>
-                  <p className="text-slate-700 mt-1">{c.title}</p>
+                  <p className="text-xs font-medium text-[#2C241D]">{cs.title}</p>
                 </div>
               ))}
             </div>
-          ) : (
-            <p className="text-xs text-brand-muted italic">No direct primary case files linked.</p>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* Connected Entities in Network */}
-        <div>
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
-            <Network className="w-3.5 h-3.5 text-brand-purple" />
-            Connected First-Degree Links ({profile.connected_entities?.length || 0})
-          </h3>
-          {profile.connected_entities && profile.connected_entities.length > 0 ? (
-            <div className="space-y-2 max-h-56 overflow-y-auto">
-              {profile.connected_entities.map((ce, idx) => (
-                <div
-                  key={`${ce.id}-${idx}`}
-                  onClick={() => onSelectEntity(ce.id)}
-                  className="p-2.5 bg-slate-50 hover:bg-purple-50/70 border border-slate-200 hover:border-brand-purple/40 rounded-xl cursor-pointer transition-all flex items-center justify-between text-xs group"
-                >
-                  <div>
-                    <span className="font-semibold text-slate-900 group-hover:text-brand-purple">
-                      {ce.display_name}
-                    </span>
-                    <div className="text-[11px] text-brand-muted flex items-center gap-1.5 mt-0.5">
-                      <span className="font-mono">{ce.relationship_type.replace(/_/g, ' ')}</span>
-                      <span>•</span>
-                      <Badge label={ce.label} size="sm" variant="slate" />
-                    </div>
-                  </div>
-                  <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-brand-purple" />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs text-brand-muted italic">No first-degree connections found.</p>
-          )}
-        </div>
-
-        {/* Source Evidence References */}
-        <div>
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
-            <FileText className="w-3.5 h-3.5 text-indigo-500" />
-            Originating Source Records ({profile.source_records?.length || 0})
-          </h3>
-          {profile.source_records && profile.source_records.length > 0 ? (
+        {/* Source Evidence Records */}
+        {profile.source_records.length > 0 && (
+          <div className="space-y-3">
+            <h3 className="text-xs font-bold text-[#5A4D41] uppercase tracking-wider flex items-center gap-1.5">
+              <FileText className="w-3.5 h-3.5 text-[#9C6644]" />
+              Evidentiary Records ({profile.source_records.length})
+            </h3>
             <div className="space-y-2">
-              {profile.source_records.map((sr) => (
-                <div
-                  key={sr.record_code}
-                  className="p-3 bg-indigo-50/40 rounded-xl border border-indigo-100 text-xs space-y-1"
-                >
+              {profile.source_records.map((rec, i) => (
+                <div key={i} className="p-3 bg-white rounded-xl border border-[#E5DACB] text-xs shadow-2xs space-y-1">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold font-mono text-indigo-900">{sr.record_code}</span>
-                    <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-indigo-100 text-indigo-800">
-                      {sr.source_type}
+                    <span className="font-mono font-bold text-[#2C241D]">{rec.record_code}</span>
+                    <span className="text-[10px] font-semibold text-[#7D7268] uppercase bg-[#F5EFE6] px-1.5 py-0.5 rounded">
+                      {rec.source_type}
                     </span>
                   </div>
-                  {sr.snippet && (
-                    <p className="text-slate-600 text-[11px] italic">"{sr.snippet}"</p>
+                  {rec.snippet && (
+                    <p className="text-[11px] text-[#5A4D41] italic bg-[#FAF7F2] p-2 rounded-lg border border-[#EAE1D5]">
+                      "{rec.snippet}"
+                    </p>
                   )}
                 </div>
               ))}
             </div>
-          ) : (
-            <p className="text-xs text-brand-muted italic">No source record references indexed.</p>
-          )}
-        </div>
-      </div>
-
-      {/* Drawer Footer Disclaimer */}
-      <div className="p-4 border-t border-brand-border bg-slate-50">
-        <DisclaimerBanner variant="light" />
+          </div>
+        )}
       </div>
     </div>
   );

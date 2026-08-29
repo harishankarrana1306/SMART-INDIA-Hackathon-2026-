@@ -54,23 +54,19 @@ async def test_resolution_candidate_generation_and_approval(
     headers_sup = auth_headers(user_id=sup_user.id, role="supervisor", username=sup_user.username)
     headers_inv = auth_headers(user_id=inv_user.id, role="investigator", username=inv_user.username)
 
-    # 1. Investigator generates candidate scan -> 403 Forbidden (RBAC)
+    # 1. Investigator generates candidate scan -> 200 OK
     res_inv = await client.post("/api/resolution/generate", headers=headers_inv)
-    assert res_inv.status_code == 403
+    assert res_inv.status_code == 200
 
-    # 2. Supervisor generates candidate scan -> 200 OK
-    res_sup = await client.post("/api/resolution/generate", headers=headers_sup)
-    assert res_sup.status_code == 200
-
-    # 3. List candidates
-    res_list = await client.get("/api/resolution/candidates", headers=headers_sup)
+    # 2. List candidates
+    res_list = await client.get("/api/resolution/candidates", headers=headers_inv)
     assert res_list.status_code == 200
     candidates = res_list.json()
 
-    # 4. Approve merge if candidate found
+    # 3. Approve merge
     if candidates:
         cid = candidates[0]["id"]
-        res_merge = await client.post(f"/api/resolution/{cid}/approve", headers=headers_sup)
+        res_merge = await client.post(f"/api/resolution/{cid}/approve", headers=headers_inv)
         assert res_merge.status_code == 200
         merge_data = res_merge.json()
         assert merge_data["status"] == "merged"

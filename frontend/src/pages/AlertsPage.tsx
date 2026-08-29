@@ -7,7 +7,11 @@ import AlertFilters from '../components/alerts/AlertFilters';
 import LoadingState from '../components/common/LoadingState';
 import DisclaimerBanner from '../components/common/DisclaimerBanner';
 
-export const AlertsPage: React.FC = () => {
+interface AlertsPageProps {
+  onNavigateToGraph?: (caseCode?: string, nodeId?: string) => void;
+}
+
+export const AlertsPage: React.FC<AlertsPageProps> = ({ onNavigateToGraph }) => {
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [severityFilter, setSeverityFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('unreviewed');
@@ -32,6 +36,9 @@ export const AlertsPage: React.FC = () => {
 
   useEffect(() => {
     fetchAlerts();
+    const handleReload = () => fetchAlerts();
+    window.addEventListener('netra-data-reloaded', handleReload);
+    return () => window.removeEventListener('netra-data-reloaded', handleReload);
   }, [severityFilter, statusFilter]);
 
   const showFeedback = (msg: string) => {
@@ -78,18 +85,18 @@ export const AlertsPage: React.FC = () => {
   };
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-6 animate-fadeIn">
+    <div className="p-8 max-w-5xl mx-auto space-y-6 animate-fadeIn text-[#2C241D]">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-brand-border shadow-sm">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-[#E5DACB] shadow-sm">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <ShieldAlert className="w-5 h-5 text-brand-purple" />
-            <h2 className="text-lg font-bold text-slate-900 tracking-tight">
+            <ShieldAlert className="w-5 h-5 text-[#9C6644]" />
+            <h2 className="text-lg font-bold text-[#2C241D] tracking-tight">
               Investigative Pattern Alerts & Advisory Rules
             </h2>
           </div>
-          <p className="text-xs text-brand-muted max-w-2xl">
-            Deterministic graph pattern detectors surface multi-record co-occurrences, high-frequency communication relays, circular money transfers, and shared high-risk identifiers for human investigator evaluation.
+          <p className="text-xs text-[#7D7268] max-w-3xl">
+            Surfaces graph discoveries and pattern intelligence: multi-case overlaps, high-degree hubs, circular wire structuring, and shared phone/vehicle identifiers with explainable reasoning and direct graph inspection.
           </p>
         </div>
 
@@ -97,52 +104,50 @@ export const AlertsPage: React.FC = () => {
           <button
             type="button"
             onClick={fetchAlerts}
-            className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all"
-            title="Refresh alert feed"
+            className="p-2.5 bg-[#F5EFE6] hover:bg-[#EAE1D5] text-[#43382F] rounded-xl transition-all border border-[#E5DACB] cursor-pointer"
+            title="Refresh alerts"
           >
             <RefreshCw className="w-4 h-4" />
           </button>
-
           <button
             type="button"
             onClick={handleScan}
             disabled={isScanning}
-            className="px-4 py-2.5 bg-brand-purple hover:bg-brand-purple-light text-white text-xs font-bold rounded-xl shadow-lg shadow-brand-purple/20 transition-all flex items-center gap-2"
+            className="px-4 py-2.5 bg-[#9C6644] hover:bg-[#7F4F24] text-white text-xs font-semibold rounded-xl transition-all shadow-md shadow-[#9C6644]/25 flex items-center gap-2 cursor-pointer"
           >
-            {isScanning ? (
-              <RefreshCw className="w-4 h-4 animate-spin" />
-            ) : (
-              <Sparkles className="w-4 h-4" />
-            )}
-            <span>Scan Rule Patterns</span>
+            <Sparkles className="w-4 h-4 text-[#DDA15E]" />
+            <span>{isScanning ? 'Evaluating Pattern Rules...' : 'Re-Evaluate Heuristic Rules'}</span>
           </button>
         </div>
       </div>
 
       {/* Notification Toast */}
       {notification && (
-        <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl text-xs font-semibold flex items-center gap-2 animate-fadeIn">
+        <div className="p-3.5 bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-2xl text-xs font-semibold flex items-center gap-2 animate-fadeIn shadow-sm">
           <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
           <span>{notification}</span>
         </div>
       )}
 
-      {/* Filter Bar */}
+      {/* Filters Bar */}
       <AlertFilters
-        severityFilter={severityFilter}
+        selectedSeverity={severityFilter}
+        selectedStatus={statusFilter}
         onSeverityChange={setSeverityFilter}
-        statusFilter={statusFilter}
         onStatusChange={setStatusFilter}
         onReset={handleReset}
       />
 
       {/* Alerts Stream */}
       {isLoading ? (
-        <LoadingState message="Evaluating graph topology and rule conditions..." />
+        <LoadingState message="Scanning knowledge graph for heuristic pattern alerts..." />
       ) : alerts.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-brand-border p-12 text-center text-xs text-brand-muted space-y-2">
-          <p className="font-semibold text-slate-700">No pattern alerts match active filters.</p>
-          <p>Click 'Scan Rule Patterns' to evaluate newly ingested records across all 4 deterministic rules.</p>
+        <div className="p-12 text-center bg-white rounded-3xl border border-[#E5DACB] shadow-sm space-y-3">
+          <ShieldAlert className="w-10 h-10 text-[#8C827A] mx-auto opacity-50" />
+          <h3 className="text-sm font-bold text-[#2C241D]">No pattern alerts matching current filter</h3>
+          <p className="text-xs text-[#7D7268] max-w-sm mx-auto">
+            Click "Re-Evaluate Heuristic Rules" to analyze the updated knowledge graph for cross-case syndicates.
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -152,12 +157,13 @@ export const AlertsPage: React.FC = () => {
               alert={al}
               onAcknowledge={handleAcknowledge}
               onDismiss={handleDismiss}
+              onViewGraph={(caseCode, nodeId) => onNavigateToGraph && onNavigateToGraph(caseCode, nodeId)}
             />
           ))}
         </div>
       )}
 
-      {/* Disclaimer */}
+      {/* Mandatory Disclaimer */}
       <DisclaimerBanner variant="light" />
     </div>
   );

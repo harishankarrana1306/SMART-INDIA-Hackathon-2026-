@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import String, Boolean, DateTime, Text, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
@@ -20,7 +20,7 @@ class SourceRecord(Base):
     file_name: Mapped[str] = mapped_column(String(256), nullable=True)
     title: Mapped[str] = mapped_column(String(256), nullable=True)
     ingested_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
-    ingested_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    ingested_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     is_synthetic: Mapped[bool] = mapped_column(Boolean, default=True)
 
     case = relationship("Case", foreign_keys=[case_id], backref="source_records")

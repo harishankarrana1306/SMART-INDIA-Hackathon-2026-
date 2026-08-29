@@ -1,4 +1,4 @@
-export type Role = 'investigator' | 'supervisor' | 'administrator';
+export type Role = 'investigator' | 'supervisor';
 
 export interface User {
   id: string;
@@ -31,7 +31,10 @@ export interface DashboardTotals {
   total_entities: number;
   total_records: number;
   total_alerts: number;
+  total_relationships?: number;
+  total_high_risk_entities?: number;
   total_audit_events: number;
+  entity_breakdown?: Record<string, number>;
 }
 
 export interface CaseSummary {
@@ -55,10 +58,30 @@ export interface ActivityItem {
   metadata?: Record<string, any>;
 }
 
+export interface DashboardAlertItem {
+  id: string;
+  rule_name: string;
+  title: string;
+  severity: string;
+  description: string;
+  created_at: string;
+}
+
+export interface DashboardRecordItem {
+  id: string;
+  record_code: string;
+  source_type: string;
+  file_name?: string;
+  ingested_at: string;
+}
+
 export interface DashboardSummary {
   totals: DashboardTotals;
   recent_cases: CaseSummary[];
-  recent_activity: ActivityItem[];
+  recent_alerts?: DashboardAlertItem[];
+  recent_records?: DashboardRecordItem[];
+  recent_activity?: ActivityItem[];
+  entity_breakdown?: Record<string, number>;
   disclaimer: string;
 }
 
@@ -242,6 +265,13 @@ export interface EntityMatchCandidate {
     properties: Record<string, any>;
     is_masked_sensitive: boolean;
   };
+  name_variations?: string[];
+  cases?: string[];
+  associated_phones?: string[];
+  associated_vehicles?: string[];
+  associated_locations?: string[];
+  other_identifiers?: string[];
+  supporting_evidence?: string[];
   match_confidence: number;
   match_reason: string;
   status: 'pending' | 'merged' | 'rejected';
@@ -251,7 +281,20 @@ export interface EntityMatchCandidate {
 
 export interface TimelineEvent {
   event_id: string;
-  event_type: 'call' | 'financial_transfer' | 'surveillance_sighting' | 'fir_filed' | 'bank_activity';
+  event_type:
+    | 'call'
+    | 'phone_communication'
+    | 'financial_transfer'
+    | 'financial_transaction'
+    | 'surveillance_sighting'
+    | 'surveillance_observation'
+    | 'fir_filed'
+    | 'document_fir'
+    | 'vehicle_movement'
+    | 'meeting_colocation'
+    | 'social_media_event'
+    | 'bank_activity'
+    | string;
   timestamp: string;
   title: string;
   description: string;
@@ -281,6 +324,13 @@ export interface AlertItem {
   description: string;
   severity: 'HIGH' | 'MEDIUM' | 'LOW';
   threshold_description?: string;
+  entity_id?: string;
+  entity_name?: string;
+  entity_type?: string;
+  risk_indicator?: string;
+  connections_count?: number;
+  related_entities?: Array<{ id: string; name: string; type: string; role?: string }>;
+  cases?: string[];
   supporting_entity_ids: Array<{ id: string; name: string; type: string }>;
   supporting_record_ids: string[];
   status: 'unreviewed' | 'acknowledged' | 'dismissed' | 'investigating';

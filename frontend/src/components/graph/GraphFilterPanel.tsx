@@ -1,9 +1,11 @@
 import React from 'react';
-import { Search, Filter, RotateCcw, Network, Layers } from 'lucide-react';
+import { Search, Filter, RotateCcw, Network, Layers, Shield } from 'lucide-react';
 
 interface GraphFilterPanelProps {
   searchTerm: string;
   onSearchChange: (val: string) => void;
+  selectedCase: string;
+  onCaseChange: (val: string) => void;
   selectedType: string;
   onTypeChange: (val: string) => void;
   selectedRelType: string;
@@ -13,7 +15,19 @@ interface GraphFilterPanelProps {
   onReset: () => void;
   nodeCount: number;
   edgeCount: number;
+  isHighRiskFocus?: boolean;
+  onToggleHighRiskFocus?: () => void;
 }
+
+const CASE_OPTIONS: { id: string; label: string }[] = [
+  { id: 'ALL', label: 'All Cases (Global Cross-Case Network)' },
+  { id: 'FIC-CASE-0001', label: 'FIC-CASE-0001: Cyber Remittance Syndicate (Maya Orchid)' },
+  { id: 'FIC-CASE-0002', label: 'FIC-CASE-0002: Inter-State Transport & Hawala (Lotus Transit)' },
+  { id: 'FIC-CASE-0003', label: 'FIC-CASE-0003: Counterfeit Identity & Forgery (Falcon Shield)' },
+  { id: 'FIC-CASE-0004', label: 'FIC-CASE-0004: ATM Cash-Out & Rapid Mule (Silver Stream)' },
+  { id: 'FIC-CASE-0005', label: 'FIC-CASE-0005: Cellular SIM Relay & GSM Array (Blue Horizon)' },
+  { id: 'FIC-CASE-0006', label: 'FIC-CASE-0006: Phishing Gateway Infrastructure (Asteroid)' },
+];
 
 const ENTITY_TYPES: { id: string; label: string }[] = [
   { id: 'ALL', label: 'All Entity Types' },
@@ -42,6 +56,8 @@ const RELATIONSHIP_TYPES: { id: string; label: string }[] = [
 export const GraphFilterPanel: React.FC<GraphFilterPanelProps> = ({
   searchTerm,
   onSearchChange,
+  selectedCase,
+  onCaseChange,
   selectedType,
   onTypeChange,
   selectedRelType,
@@ -51,62 +67,105 @@ export const GraphFilterPanel: React.FC<GraphFilterPanelProps> = ({
   onReset,
   nodeCount,
   edgeCount,
+  isHighRiskFocus = false,
+  onToggleHighRiskFocus,
 }) => {
   return (
-    <aside className="w-80 bg-white border-r border-brand-border flex flex-col h-full overflow-y-auto shadow-sm">
+    <aside className="w-80 bg-[#F5EFE6] border-r border-[#E5DACB] flex flex-col h-full overflow-y-auto shadow-sm text-[#2C241D]">
       {/* Panel Header */}
-      <div className="p-4 border-b border-brand-border bg-slate-50/50">
+      <div className="p-4 border-b border-[#E5DACB] bg-[#EAE1D5]">
         <div className="flex items-center justify-between mb-1">
-          <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-            <Filter className="w-4 h-4 text-brand-purple" />
+          <h2 className="text-sm font-bold text-[#2C241D] flex items-center gap-2">
+            <Filter className="w-4 h-4 text-[#9C6644]" />
             Network Graph Filters
           </h2>
           <button
             type="button"
             onClick={onReset}
-            className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-md transition-all text-xs flex items-center gap-1"
+            className="p-1 text-[#7D7268] hover:text-[#2C241D] hover:bg-[#D8CBB9] rounded-lg transition-all text-xs flex items-center gap-1 cursor-pointer"
             title="Reset Filters"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Reset</span>
           </button>
         </div>
-        <div className="flex items-center gap-3 text-xs text-brand-muted mt-2 font-mono">
-          <span className="bg-purple-50 text-brand-purple px-2 py-0.5 rounded border border-purple-100 font-semibold">
+        <div className="flex items-center gap-3 text-xs mt-2 font-mono">
+          <span className="bg-[#9C6644]/15 text-[#9C6644] px-2 py-0.5 rounded-lg border border-[#9C6644]/25 font-bold">
             {nodeCount} Nodes
           </span>
-          <span className="bg-indigo-50 text-brand-indigo px-2 py-0.5 rounded border border-indigo-100 font-semibold">
+          <span className="bg-[#4A6FA5]/15 text-[#4A6FA5] px-2 py-0.5 rounded-lg border border-[#4A6FA5]/25 font-bold">
             {edgeCount} Edges
           </span>
         </div>
       </div>
 
-      {/* Search Input */}
-      <div className="p-4 border-b border-brand-border">
-        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-          Search Entities & Cases
+      {/* Case Selector Filter */}
+      <div className="p-4 border-b border-[#E5DACB] space-y-2">
+        <label className="block text-xs font-bold text-[#5A4D41] uppercase tracking-wider">
+          Active Case Scope
+        </label>
+        <select
+          value={selectedCase}
+          onChange={(e) => onCaseChange(e.target.value)}
+          className="w-full px-3 py-2 text-xs bg-[#FFFDFB] border border-[#E5DACB] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#9C6644] focus:border-[#9C6644] font-semibold text-[#2C241D] shadow-xs"
+        >
+          {CASE_OPTIONS.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.label}
+            </option>
+          ))}
+        </select>
+        <p className="text-[11px] text-[#7D7268] mt-1">
+          {selectedCase === 'ALL'
+            ? 'Viewing all interconnected syndicates across the full cross-case network.'
+            : 'Focusing on entities and cross-case bridges originating from this investigation.'}
+        </p>
+
+        {/* High Risk Focus Toggle Button */}
+        {onToggleHighRiskFocus && (
+          <button
+            type="button"
+            onClick={onToggleHighRiskFocus}
+            className={`w-full mt-2 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs ${
+              isHighRiskFocus
+                ? 'bg-[#7F1D1D] text-white border border-[#EF4444] shadow-md ring-2 ring-[#EF4444]/20'
+                : 'bg-[#FFFDFB] text-[#7F1D1D] border border-[#E5DACB] hover:bg-[#FCE8E6]'
+            }`}
+          >
+            <Shield className={`w-3.5 h-3.5 ${isHighRiskFocus ? 'text-[#FCA5A5]' : 'text-[#DC2626]'}`} />
+            <span>
+              {isHighRiskFocus ? 'Clear High Risk Focus' : 'Focus 14 High Risk Entities'}
+            </span>
+          </button>
+        )}
+      </div>
+
+      {/* Search Filter */}
+      <div className="p-4 border-b border-[#E5DACB] space-y-2">
+        <label className="block text-xs font-bold text-[#5A4D41] uppercase tracking-wider">
+          Search Entities
         </label>
         <div className="relative">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-[#7D7268] absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search person, phone, vehicle, etc..."
-            className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-brand-purple focus:ring-1 focus:ring-brand-purple transition-all text-slate-800"
+            placeholder="Name, phone, vehicle, account..."
+            className="w-full pl-9 pr-3 py-2 text-xs bg-[#FFFDFB] border border-[#E5DACB] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#9C6644] focus:border-[#9C6644] text-[#2C241D] placeholder-[#A89F91]"
           />
         </div>
       </div>
 
       {/* Entity Type Filter */}
-      <div className="p-4 border-b border-brand-border">
-        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-          Entity Type Filter
+      <div className="p-4 border-b border-[#E5DACB] space-y-2">
+        <label className="block text-xs font-bold text-[#5A4D41] uppercase tracking-wider">
+          Entity Type
         </label>
         <select
           value={selectedType}
           onChange={(e) => onTypeChange(e.target.value)}
-          className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-brand-purple text-slate-800"
+          className="w-full px-3 py-2 text-xs bg-[#FFFDFB] border border-[#E5DACB] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#9C6644] focus:border-[#9C6644] text-[#2C241D]"
         >
           {ENTITY_TYPES.map((t) => (
             <option key={t.id} value={t.id}>
@@ -117,14 +176,14 @@ export const GraphFilterPanel: React.FC<GraphFilterPanelProps> = ({
       </div>
 
       {/* Relationship Type Filter */}
-      <div className="p-4 border-b border-brand-border">
-        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
+      <div className="p-4 border-b border-[#E5DACB] space-y-2">
+        <label className="block text-xs font-bold text-[#5A4D41] uppercase tracking-wider">
           Relationship Type
         </label>
         <select
           value={selectedRelType}
           onChange={(e) => onRelTypeChange(e.target.value)}
-          className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-brand-purple text-slate-800"
+          className="w-full px-3 py-2 text-xs bg-[#FFFDFB] border border-[#E5DACB] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#9C6644] focus:border-[#9C6644] text-[#2C241D]"
         >
           {RELATIONSHIP_TYPES.map((r) => (
             <option key={r.id} value={r.id}>
@@ -134,47 +193,31 @@ export const GraphFilterPanel: React.FC<GraphFilterPanelProps> = ({
         </select>
       </div>
 
-      {/* Physics / Layout Engine */}
-      <div className="p-4 border-b border-brand-border">
-        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2 flex items-center gap-1.5">
-          <Layers className="w-3.5 h-3.5 text-brand-purple" />
-          Graph Layout Algorithm
+      {/* Layout Selector */}
+      <div className="p-4 border-b border-[#E5DACB] space-y-2">
+        <label className="block text-xs font-bold text-[#5A4D41] uppercase tracking-wider">
+          Graph Layout
         </label>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-1.5">
           {[
             { id: 'cose', label: 'Force-Directed' },
             { id: 'concentric', label: 'Concentric' },
+            { id: 'breadthfirst', label: 'Tree / Hierarchy' },
             { id: 'circle', label: 'Circular' },
-            { id: 'breadthfirst', label: 'Hierarchical' },
           ].map((l) => (
             <button
               key={l.id}
               type="button"
               onClick={() => onLayoutChange(l.id)}
-              className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all ${
+              className={`py-1.5 px-2.5 rounded-lg text-xs font-medium transition-all text-center cursor-pointer ${
                 selectedLayout === l.id
-                  ? 'bg-brand-purple text-white border-brand-purple shadow-sm'
-                  : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                  ? 'bg-[#9C6644] text-white shadow-xs'
+                  : 'bg-[#FFFDFB] text-[#5A4D41] border border-[#E5DACB] hover:bg-[#EAE1D5]'
               }`}
             >
               {l.label}
             </button>
           ))}
-        </div>
-      </div>
-
-      {/* Help / Guide Box */}
-      <div className="p-4 mt-auto">
-        <div className="p-3.5 rounded-xl bg-purple-50/70 border border-purple-100 text-purple-900 text-xs space-y-1.5">
-          <p className="font-semibold flex items-center gap-1">
-            <Network className="w-3.5 h-3.5 text-brand-purple" />
-            Investigator Controls
-          </p>
-          <ul className="text-[11px] text-purple-800/90 space-y-1 list-disc list-inside">
-            <li>Click a node to inspect entity profile.</li>
-            <li>Click an edge to review origin evidence.</li>
-            <li>Use <strong>Expand</strong> to load 2nd-degree links.</li>
-          </ul>
         </div>
       </div>
     </aside>

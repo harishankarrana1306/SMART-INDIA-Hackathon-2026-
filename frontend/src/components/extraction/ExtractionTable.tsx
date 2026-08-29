@@ -10,9 +10,8 @@ interface ExtractionTableProps {
   onToggleSelect: (id: string) => void;
   onSelectAll: () => void;
   onApprove: (id: string) => void;
-  onCorrect: (entity: ExtractedEntity) => void;
   onReject: (id: string) => void;
-  onBatchApprove: () => void;
+  onEdit: (entity: ExtractedEntity) => void;
 }
 
 export const ExtractionTable: React.FC<ExtractionTableProps> = ({
@@ -21,9 +20,8 @@ export const ExtractionTable: React.FC<ExtractionTableProps> = ({
   onToggleSelect,
   onSelectAll,
   onApprove,
-  onCorrect,
   onReject,
-  onBatchApprove,
+  onEdit,
 }) => {
   const allPendingSelected =
     entities.filter((e) => e.status === 'pending').length > 0 &&
@@ -31,52 +29,46 @@ export const ExtractionTable: React.FC<ExtractionTableProps> = ({
       .filter((e) => e.status === 'pending')
       .every((e) => selectedIds.includes(e.id));
 
-  return (
-    <div className="space-y-3">
-      {/* Batch Action Toolbar */}
-      {selectedIds.length > 0 && (
-        <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl flex items-center justify-between animate-fadeIn">
-          <span className="text-xs font-semibold text-purple-950 flex items-center gap-2">
-            <span className="w-5 h-5 rounded-full bg-brand-purple text-white flex items-center justify-center text-[10px] font-bold">
-              {selectedIds.length}
-            </span>
-            <span>Entities selected for batch staging approval</span>
-          </span>
-          <button
-            type="button"
-            onClick={onBatchApprove}
-            className="px-4 py-1.5 bg-brand-purple hover:bg-brand-purple-light text-white text-xs font-bold rounded-lg shadow-sm transition-all flex items-center gap-1.5"
-          >
-            <CheckCheck className="w-4 h-4" />
-            <span>Approve Selected to Graph</span>
-          </button>
+  if (entities.length === 0) {
+    return (
+      <div className="bg-white rounded-3xl border border-[#E5DACB] p-12 text-center space-y-3 shadow-xs animate-fadeIn">
+        <div className="w-12 h-12 rounded-2xl bg-[#EAF5EF] text-[#2D7A58] flex items-center justify-center mx-auto border border-[#D0EADB] shadow-xs">
+          <Check className="w-6 h-6" />
         </div>
-      )}
+        <h3 className="text-base font-bold text-[#2C241D]">All Entities Synchronized to Graph</h3>
+        <p className="text-xs text-[#7D7268] max-w-md mx-auto leading-relaxed">
+          All baseline entities are already approved and active in the Knowledge Graph. When you ingest new FIRs, CDR files, or documents, newly extracted candidate entities will appear here for human review.
+        </p>
+      </div>
+    );
+  }
 
-      {/* Main Table */}
-      <div className="bg-white rounded-2xl border border-brand-border shadow-sm overflow-hidden">
+  return (
+    <div className="space-y-3 text-[#2C241D]">
+      {/* Main Table Container */}
+      <div className="bg-white rounded-3xl border border-[#E5DACB] shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-brand-border bg-slate-50/90 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                <th className="py-3 px-4 w-10">
+              <tr className="border-b border-[#E5DACB] bg-[#F5EFE6] text-[11px] font-bold uppercase tracking-wider text-[#5C5248]">
+                <th className="py-3.5 px-4 w-10">
                   <input
                     type="checkbox"
                     checked={allPendingSelected}
                     onChange={onSelectAll}
-                    className="rounded border-slate-300 text-brand-purple focus:ring-brand-purple"
+                    className="rounded border-[#E5DACB] text-[#9C6644] focus:ring-[#9C6644] cursor-pointer"
                   />
                 </th>
-                <th className="py-3 px-4">Entity Type</th>
-                <th className="py-3 px-4">Extracted & Normalized Value</th>
-                <th className="py-3 px-4">Context Snippet</th>
-                <th className="py-3 px-4">Source Record</th>
-                <th className="py-3 px-4">Confidence</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4 text-right">Human Review Actions</th>
+                <th className="py-3.5 px-4">Entity Type</th>
+                <th className="py-3.5 px-4">Extracted & Normalized Value</th>
+                <th className="py-3.5 px-4">Context Snippet</th>
+                <th className="py-3.5 px-4">Source Record</th>
+                <th className="py-3.5 px-4">Confidence</th>
+                <th className="py-3.5 px-4">Status</th>
+                <th className="py-3.5 px-4 text-right">Human Review Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-brand-border/60 text-xs text-slate-800">
+            <tbody className="divide-y divide-[#E5DACB]/60 text-xs text-[#2C241D]">
               {entities.map((ent) => {
                 const isSelected = selectedIds.includes(ent.id);
                 const isPending = ent.status === 'pending';
@@ -84,8 +76,8 @@ export const ExtractionTable: React.FC<ExtractionTableProps> = ({
                 return (
                   <tr
                     key={ent.id}
-                    className={`hover:bg-slate-50/80 transition-colors ${
-                      isSelected ? 'bg-purple-50/40' : ''
+                    className={`hover:bg-[#F5EFE6]/50 transition-colors ${
+                      isSelected ? 'bg-[#9C6644]/10' : ''
                     }`}
                   >
                     <td className="py-3.5 px-4">
@@ -94,10 +86,10 @@ export const ExtractionTable: React.FC<ExtractionTableProps> = ({
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => onToggleSelect(ent.id)}
-                          className="rounded border-slate-300 text-brand-purple focus:ring-brand-purple cursor-pointer"
+                          className="rounded border-[#E5DACB] text-[#9C6644] focus:ring-[#9C6644] cursor-pointer"
                         />
                       ) : (
-                        <span className="text-slate-300">—</span>
+                        <span className="text-[#8C827A]">—</span>
                       )}
                     </td>
 
@@ -105,15 +97,15 @@ export const ExtractionTable: React.FC<ExtractionTableProps> = ({
                       <Badge label={ent.entity_type} size="sm" />
                     </td>
 
-                    <td className="py-3.5 px-4 font-semibold text-slate-900 font-mono">
+                    <td className="py-3.5 px-4 font-bold text-[#2C241D] font-mono">
                       {ent.normalized_value}
                     </td>
 
-                    <td className="py-3.5 px-4 text-slate-500 max-w-xs truncate text-[11px] italic" title={ent.context_snippet}>
+                    <td className="py-3.5 px-4 text-[#7D7268] max-w-xs truncate text-[11px] italic" title={ent.context_snippet}>
                       {ent.context_snippet ? `"${ent.context_snippet}"` : '—'}
                     </td>
 
-                    <td className="py-3.5 px-4 font-mono font-semibold text-indigo-900">
+                    <td className="py-3.5 px-4 font-mono font-bold text-[#9C6644]">
                       {ent.record_code || 'REC-SOURCE'}
                     </td>
 
@@ -123,15 +115,15 @@ export const ExtractionTable: React.FC<ExtractionTableProps> = ({
 
                     <td className="py-3.5 px-4">
                       {ent.status === 'approved' ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-[#2D7A58] bg-[#EAF5EF] px-2 py-0.5 rounded-full border border-[#D0EADB]">
                           <Check className="w-3 h-3" /> Approved
                         </span>
                       ) : ent.status === 'rejected' ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-[#C24134] bg-[#FCEEED] px-2 py-0.5 rounded-full border border-[#F8D5D2]">
                           <X className="w-3 h-3" /> Rejected
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 animate-pulse">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-[#9C6644] bg-[#FEF6E9] px-2 py-0.5 rounded-full border border-[#FCE4BE] animate-pulse">
                           Pending Review
                         </span>
                       )}
@@ -143,15 +135,15 @@ export const ExtractionTable: React.FC<ExtractionTableProps> = ({
                           <button
                             type="button"
                             onClick={() => onApprove(ent.id)}
-                            className="p-1.5 bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-700 border border-emerald-200 rounded-lg transition-all"
+                            className="p-1.5 bg-[#EAF5EF] hover:bg-[#2D7A58] hover:text-white text-[#2D7A58] border border-[#D0EADB] rounded-lg transition-all cursor-pointer"
                             title="Approve to Graph"
                           >
                             <Check className="w-3.5 h-3.5" />
                           </button>
                           <button
                             type="button"
-                            onClick={() => onCorrect(ent)}
-                            className="p-1.5 bg-purple-50 hover:bg-brand-purple hover:text-white text-brand-purple border border-purple-200 rounded-lg transition-all"
+                            onClick={() => onEdit(ent)}
+                            className="p-1.5 bg-[#FEF6E9] hover:bg-[#9C6644] hover:text-white text-[#9C6644] border border-[#FCE4BE] rounded-lg transition-all cursor-pointer"
                             title="Correct & Approve"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
@@ -159,14 +151,14 @@ export const ExtractionTable: React.FC<ExtractionTableProps> = ({
                           <button
                             type="button"
                             onClick={() => onReject(ent.id)}
-                            className="p-1.5 bg-rose-50 hover:bg-rose-600 hover:text-white text-rose-700 border border-rose-200 rounded-lg transition-all"
+                            className="p-1.5 bg-[#FCEEED] hover:bg-[#C24134] hover:text-white text-[#C24134] border border-[#F8D5D2] rounded-lg transition-all cursor-pointer"
                             title="Reject Extraction"
                           >
                             <X className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       ) : (
-                        <span className="text-[11px] text-slate-400 font-mono">Reviewed</span>
+                        <span className="text-[11px] text-[#8C827A] font-mono">Reviewed</span>
                       )}
                     </td>
                   </tr>

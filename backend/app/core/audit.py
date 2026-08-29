@@ -6,6 +6,7 @@ It is explicitly NOT a cryptocurrency, token, or distributed blockchain. It prov
 verification and chain-of-custody for law enforcement compliance and investigation integrity.
 """
 
+import asyncio
 import hashlib
 import json
 from datetime import datetime, timezone
@@ -16,6 +17,16 @@ from sqlalchemy.orm import Session
 from app.models.audit_log import AuditLog
 
 GENESIS_PREV_HASH = "0" * 64
+_audit_lock = asyncio.Lock()
+_cached_seq_no: Optional[int] = None
+_cached_prev_hash: Optional[str] = None
+
+
+def reset_audit_cache():
+    """Resets in-memory audit cache when database is reseeded."""
+    global _cached_seq_no, _cached_prev_hash
+    _cached_seq_no = None
+    _cached_prev_hash = None
 
 
 def canonical_metadata_string(metadata: Optional[Dict[str, Any]]) -> str:
@@ -60,51 +71,66 @@ async def write_audit_log(
 ) -> AuditLog:
     """
     Appends a new audit record to the tamper-evident hash chain within the current database transaction.
+    Guarantees strict monotonicity and uniqueness across high-concurrency requests.
     """
-    # Fetch last audit log to determine monotonic seq_no and prev_hash
-    query = select(AuditLog).order_by(desc(AuditLog.seq_no)).limit(1)
-    result = await db.execute(query)
-    last_log = result.scalar_one_or_none()
+    global _cached_seq_no, _cached_prev_hash
 
-    if last_log:
-        seq_no = last_log.seq_no + 1
-        prev_hash = last_log.record_hash
-    else:
-        seq_no = 1
-        prev_hash = GENESIS_PREV_HASH
+    async with _audit_lock:
+        if _cached_seq_no is None:
+            # Query last persistent entry in database
+            query = select(AuditLog).order_by(desc(AuditLog.seq_no)).limit(1)
+            result = await db.execute(query)
+            last_log = result.scalar_one_or_none()
+            if last_log:
+                _cached_seq_no = last_log.seq_no
+                _cached_prev_hash = last_log.record_hash
+            else:
+                _cached_seq_no = 0
+                _cached_prev_hash = GENESIS_PREV_HASH
 
-    ts = custom_timestamp or datetime.now(timezone.utc)
-    iso_ts = ts.strftime("%Y-%m-%dT%H:%M:%S")
-    meta_str = canonical_metadata_string(metadata)
-    uid_str = str(user_id) if user_id is not None else None
-    uid_int = int(user_id) if user_id is not None and str(user_id).isdigit() else None
+        seq_no = _cached_seq_no + 1
+        prev_hash = _cached_prev_hash or GENESIS_PREV_HASH
 
-    record_hash = compute_audit_hash(
-        seq_no=seq_no,
-        user_id=uid_str,
-        action=action,
-        target_type=target_type,
-        target_id=target_id,
-        metadata_json_str=meta_str,
-        iso_timestamp=iso_ts,
-        prev_hash=prev_hash,
-    )
+        ts = custom_timestamp or datetime.now(timezone.utc)
+        iso_ts = ts.strftime("%Y-%m-%dT%H:%M:%S")
+        meta_str = canonical_metadata_string(metadata)
+        uid_str = str(user_id) if user_id is not None else None
 
-    log_entry = AuditLog(
-        seq_no=seq_no,
-        user_id=uid_str,
-        action=action,
-        target_type=target_type,
-        target_id=target_id,
-        metadata_json=metadata,
-        timestamp=ts,
-        prev_hash=prev_hash,
-        record_hash=record_hash,
-    )
+        record_hash = compute_audit_hash(
+            seq_no=seq_no,
+            user_id=uid_str,
+            action=action,
+            target_type=target_type,
+            target_id=target_id,
+            metadata_json_str=meta_str,
+            iso_timestamp=iso_ts,
+            prev_hash=prev_hash,
+        )
 
-    db.add(log_entry)
-    await db.flush()
-    return log_entry
+        log_entry = AuditLog(
+            seq_no=seq_no,
+            user_id=uid_str,
+            action=action,
+            target_type=target_type,
+            target_id=target_id,
+            metadata_json=metadata,
+            timestamp=ts,
+            prev_hash=prev_hash,
+            record_hash=record_hash,
+        )
+
+        db.add(log_entry)
+        try:
+            await db.flush()
+            _cached_seq_no = seq_no
+            _cached_prev_hash = record_hash
+        except Exception:
+            # If a collision happens from an uncommitted external transaction, reload cache
+            _cached_seq_no = None
+            _cached_prev_hash = None
+            raise
+
+        return log_entry
 
 
 def write_sync_audit_log(

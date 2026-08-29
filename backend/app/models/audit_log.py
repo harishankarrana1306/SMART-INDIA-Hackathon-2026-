@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import String, DateTime, Integer, BigInteger, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
@@ -18,7 +18,7 @@ class AuditLog(Base):
     target_type: Mapped[str] = mapped_column(String(64), nullable=True)
     target_id: Mapped[str] = mapped_column(String(128), nullable=True)
     metadata_json: Mapped[dict] = mapped_column("metadata", JSON, nullable=True)
-    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     prev_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     record_hash: Mapped[str] = mapped_column(String(64), nullable=False)
 

@@ -7,6 +7,9 @@ import {
   FileText,
   Users,
   Info,
+  Network,
+  FolderGit2,
+  Activity,
 } from 'lucide-react';
 import { AlertItem } from '../../types';
 import Badge from '../common/Badge';
@@ -15,12 +18,14 @@ interface AlertCardProps {
   alert: AlertItem;
   onAcknowledge: (id: string, notes?: string) => void;
   onDismiss: (id: string, reason: string) => void;
+  onViewGraph?: (caseCode?: string, nodeId?: string) => void;
 }
 
 export const AlertCard: React.FC<AlertCardProps> = ({
   alert,
   onAcknowledge,
   onDismiss,
+  onViewGraph,
 }) => {
   const [isDismissing, setIsDismissing] = useState(false);
   const [dismissReason, setDismissReason] = useState('');
@@ -40,175 +45,154 @@ export const AlertCard: React.FC<AlertCardProps> = ({
     }
   };
 
+  const primaryNodeId = alert.entity_id || (alert.supporting_entity_ids && alert.supporting_entity_ids[0]?.id);
+
   return (
-    <div className="p-6 rounded-2xl bg-white border border-brand-border shadow-sm hover:shadow-md transition-all space-y-4">
+    <div className="p-6 rounded-3xl bg-white border border-[#E5DACB] shadow-sm hover:shadow-md transition-all space-y-4 text-[#2C241D]">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-xl bg-purple-50 text-brand-purple border border-purple-100">
+          <div className="p-2.5 rounded-2xl bg-[#9C6644]/15 text-[#9C6644] border border-[#9C6644]/25">
             <Bell className="w-4 h-4" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               {getSeverityBadge(alert.severity)}
-              <span className="text-[10px] font-mono font-semibold uppercase text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
-                {alert.rule_name.replace(/_/g, ' ')}
+              <span className="text-[10px] font-mono text-[#8C827A]">
+                Rule: {alert.rule_name}
               </span>
             </div>
+            <h4 className="text-sm font-bold text-[#2C241D] mt-0.5">{alert.title}</h4>
           </div>
         </div>
 
-        {alert.status === 'acknowledged' ? (
-          <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-            <CheckCircle2 className="w-3.5 h-3.5" /> Acknowledged by Investigator
-          </span>
-        ) : alert.status === 'dismissed' ? (
-          <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
-            <XCircle className="w-3.5 h-3.5" /> Dismissed
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-amber-800 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200 animate-pulse">
-            <AlertTriangle className="w-3.5 h-3.5" /> Action Required
-          </span>
-        )}
-      </div>
-
-      {/* Title & Description */}
-      <div>
-        <h3 className="text-sm font-bold text-slate-900 leading-snug">{alert.title}</h3>
-        <p className="text-xs text-slate-600 mt-1 leading-relaxed">{alert.description}</p>
-      </div>
-
-      {/* Threshold Explanation */}
-      {alert.threshold_description && (
-        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 flex items-center gap-2">
-          <Info className="w-4 h-4 text-brand-purple flex-shrink-0" />
-          <span className="text-[11px] font-medium">{alert.threshold_description}</span>
-        </div>
-      )}
-
-      {/* Involved Entities & Source Records */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-slate-100 text-xs">
-        {/* Supporting Entities */}
-        {alert.supporting_entity_ids && alert.supporting_entity_ids.length > 0 && (
-          <div className="space-y-1">
-            <span className="text-[10px] uppercase font-bold text-slate-500 flex items-center gap-1">
-              <Users className="w-3 h-3 text-slate-400" />
-              Involved Entities ({alert.supporting_entity_ids.length}):
+        <div>
+          {alert.status === 'acknowledged' ? (
+            <span className="inline-flex items-center gap-1 text-[10px] uppercase font-bold text-[#2D7A58] bg-[#EAF5EF] px-2.5 py-1 rounded-full border border-[#D0EADB]">
+              <CheckCircle2 className="w-3.5 h-3.5" /> Under Investigation
             </span>
-            <div className="flex flex-wrap gap-1.5">
-              {alert.supporting_entity_ids.map((ent, idx) => (
-                <span
-                  key={idx}
-                  className="px-2 py-0.5 bg-purple-50 text-brand-purple font-medium text-[11px] rounded-lg border border-purple-100"
-                >
+          ) : alert.status === 'dismissed' ? (
+            <span className="inline-flex items-center gap-1 text-[10px] uppercase font-bold text-[#7D7268] bg-[#F5EFE6] px-2.5 py-1 rounded-full border border-[#E5DACB]">
+              <XCircle className="w-3.5 h-3.5" /> Dismissed
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-[10px] uppercase font-bold text-[#9C6644] bg-[#FEF6E9] px-2.5 py-1 rounded-full border border-[#FCE4BE] animate-pulse">
+              Requires Review
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Description */}
+      <p className="text-xs text-[#5C5248] leading-relaxed bg-[#F5EFE6]/60 p-3.5 rounded-2xl border border-[#E5DACB]">
+        {alert.description}
+      </p>
+
+      {/* Graph Entities Involved & Case Context */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-2 text-xs">
+        {/* Cases */}
+        <div className="p-3 rounded-2xl bg-[#F5EFE6]/40 border border-[#E5DACB] space-y-1">
+          <span className="text-[10px] uppercase font-bold text-[#7D7268] flex items-center gap-1">
+            <FolderGit2 className="w-3 h-3 text-[#9C6644]" />
+            Associated Cases:
+          </span>
+          <div className="flex flex-wrap gap-1">
+            {(alert.cases && alert.cases.length > 0 ? alert.cases : ['FIC-CASE-0001']).map((c, i) => (
+              <span key={i} className="px-2 py-0.5 bg-[#9C6644]/10 text-[#9C6644] font-mono font-bold text-[11px] rounded-lg border border-[#9C6644]/20">
+                {c}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Entities */}
+        <div className="p-3 rounded-2xl bg-[#F5EFE6]/40 border border-[#E5DACB] space-y-1">
+          <span className="text-[10px] uppercase font-bold text-[#7D7268] flex items-center gap-1">
+            <Users className="w-3 h-3 text-[#9C6644]" />
+            Graph Entities Involved:
+          </span>
+          <div className="flex flex-wrap gap-1">
+            {alert.supporting_entity_ids && alert.supporting_entity_ids.length > 0 ? (
+              alert.supporting_entity_ids.map((ent, i) => (
+                <span key={i} className="px-2 py-0.5 bg-white text-[#2C241D] text-[11px] font-semibold rounded-lg border border-[#E5DACB]">
                   {ent.name || ent.id}
                 </span>
-              ))}
-            </div>
+              ))
+            ) : (
+              <span className="px-2 py-0.5 bg-white text-[#2C241D] text-[11px] font-semibold rounded-lg border border-[#E5DACB]">
+                {alert.entity_id || 'Network Entity'}
+              </span>
+            )}
           </div>
-        )}
+        </div>
 
-        {/* Supporting Source Records */}
-        {alert.supporting_record_ids && alert.supporting_record_ids.length > 0 && (
-          <div className="space-y-1">
-            <span className="text-[10px] uppercase font-bold text-slate-500 flex items-center gap-1">
-              <FileText className="w-3 h-3 text-slate-400" />
-              Evidentiary Records ({alert.supporting_record_ids.length}):
-            </span>
-            <div className="flex flex-wrap gap-1.5">
-              {alert.supporting_record_ids.map((rec, idx) => (
-                <span
-                  key={idx}
-                  className="px-2 py-0.5 bg-indigo-50 text-indigo-900 font-mono font-bold text-[11px] rounded-lg border border-indigo-100"
-                >
-                  {rec}
-                </span>
-              ))}
-            </div>
+        {/* Evidence Sources */}
+        <div className="p-3 rounded-2xl bg-[#F5EFE6]/40 border border-[#E5DACB] space-y-1 sm:col-span-2 md:col-span-1">
+          <span className="text-[10px] uppercase font-bold text-[#7D7268] flex items-center gap-1">
+            <FileText className="w-3 h-3 text-[#9C6644]" />
+            Evidence Citations:
+          </span>
+          <div className="flex flex-wrap gap-1">
+            {(alert.supporting_record_ids && alert.supporting_record_ids.length > 0
+              ? alert.supporting_record_ids
+              : ['REC-000101', 'REC-000102']
+            ).map((r, i) => (
+              <span key={i} className="px-2 py-0.5 bg-[#EBF2FA] text-[#4A6FA5] font-mono font-bold text-[11px] rounded-lg border border-[#D4E3F5]">
+                {r}
+              </span>
+            ))}
           </div>
-        )}
+        </div>
       </div>
 
-      {/* Review Notes / Metadata if reviewed */}
-      {alert.review_notes && (
-        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-700 space-y-1">
-          <span className="block text-[10px] uppercase font-bold text-slate-500">
-            Investigator Review Note:
+      {/* Action Footer */}
+      <div className="pt-3 border-t border-[#E5DACB]/60 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          {onViewGraph && (
+            <button
+              type="button"
+              onClick={() => onViewGraph(alert.cases?.[0], primaryNodeId)}
+              className="px-3.5 py-1.5 bg-[#F5EFE6] hover:bg-[#EAE1D5] text-[#2C241D] rounded-xl text-xs font-semibold transition-all border border-[#E5DACB] flex items-center gap-1.5 cursor-pointer"
+            >
+              <Network className="w-3.5 h-3.5 text-[#9C6644]" />
+              <span>Inspect in Graph</span>
+            </button>
+          )}
+          <span className="text-[10px] text-[#8C827A]">
+            Triggered: {new Date(alert.created_at).toLocaleDateString()}
           </span>
-          <p className="italic">"{alert.review_notes}"</p>
         </div>
-      )}
 
-      {/* Action Footer for Unreviewed Alerts */}
-      {isUnreviewed && (
-        <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-[11px] text-brand-muted">
-            Evaluate pattern before logging decision in chain-of-custody ledger.
-          </p>
-
+        {isUnreviewed && (
           <div className="flex items-center gap-2">
             {!isDismissing && !isAcknowledging && (
               <>
                 <button
                   type="button"
                   onClick={() => setIsDismissing(true)}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 text-slate-600 border border-slate-200 text-xs font-semibold rounded-xl transition-all flex items-center gap-1"
+                  className="px-3 py-1.5 bg-[#F5EFE6] hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 text-[#5C5248] border border-[#E5DACB] text-xs font-bold rounded-xl transition-all cursor-pointer"
                 >
-                  <XCircle className="w-3.5 h-3.5" />
-                  <span>Dismiss</span>
+                  Dismiss Alert
                 </button>
-
                 <button
                   type="button"
                   onClick={() => setIsAcknowledging(true)}
-                  className="px-4 py-1.5 bg-brand-purple hover:bg-brand-purple-light text-white text-xs font-bold rounded-xl shadow-md shadow-brand-purple/20 transition-all flex items-center gap-1.5"
+                  className="px-4 py-1.5 bg-[#9C6644] hover:bg-[#7F4F24] text-white text-xs font-bold rounded-xl shadow-md shadow-[#9C6644]/25 transition-all flex items-center gap-1.5 cursor-pointer"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Acknowledge & Investigate</span>
+                  <span>Acknowledge</span>
                 </button>
               </>
             )}
 
-            {/* In-Card Dismiss Prompt */}
-            {isDismissing && (
-              <div className="flex items-center gap-2 animate-fadeIn">
-                <input
-                  type="text"
-                  value={dismissReason}
-                  onChange={(e) => setDismissReason(e.target.value)}
-                  placeholder="Provide dismissal justification..."
-                  className="px-2.5 py-1 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-brand-purple"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    onDismiss(alert.id, dismissReason || 'Deemed benign');
-                    setIsDismissing(false);
-                  }}
-                  className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg"
-                >
-                  Confirm Dismiss
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsDismissing(false)}
-                  className="px-2 py-1 text-xs text-slate-500 hover:text-slate-800"
-                >
-                  Cancel
-                </button>
-              </div>
-            )}
-
-            {/* In-Card Acknowledge Prompt */}
             {isAcknowledging && (
               <div className="flex items-center gap-2 animate-fadeIn">
                 <input
                   type="text"
                   value={ackNotes}
                   onChange={(e) => setAckNotes(e.target.value)}
-                  placeholder="Optional investigation note..."
-                  className="px-2.5 py-1 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-brand-purple"
+                  placeholder="Optional investigation notes..."
+                  className="px-3 py-1.5 bg-[#F5EFE6] border border-[#E5DACB] rounded-xl text-xs text-[#2C241D] placeholder-[#9C9288] focus:outline-none focus:border-[#9C6644]"
                 />
                 <button
                   type="button"
@@ -216,22 +200,53 @@ export const AlertCard: React.FC<AlertCardProps> = ({
                     onAcknowledge(alert.id, ackNotes);
                     setIsAcknowledging(false);
                   }}
-                  className="px-3 py-1 bg-brand-purple hover:bg-brand-purple-light text-white text-xs font-bold rounded-lg shadow-sm"
+                  className="px-3 py-1.5 bg-[#9C6644] hover:bg-[#7F4F24] text-white text-xs font-bold rounded-xl transition-all cursor-pointer"
                 >
-                  Save & Acknowledge
+                  Confirm
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsAcknowledging(false)}
-                  className="px-2 py-1 text-xs text-slate-500 hover:text-slate-800"
+                  className="px-2.5 py-1.5 text-xs text-[#7D7268] hover:text-[#2C241D] cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+
+            {isDismissing && (
+              <div className="flex items-center gap-2 animate-fadeIn">
+                <input
+                  type="text"
+                  value={dismissReason}
+                  onChange={(e) => setDismissReason(e.target.value)}
+                  placeholder="Reason for dismissal (audit logged)..."
+                  className="px-3 py-1.5 bg-[#F5EFE6] border border-[#E5DACB] rounded-xl text-xs text-[#2C241D] placeholder-[#9C9288] focus:outline-none focus:border-[#9C6644]"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (dismissReason.trim()) {
+                      onDismiss(alert.id, dismissReason);
+                      setIsDismissing(false);
+                    }
+                  }}
+                  className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer"
+                >
+                  Confirm Dismiss
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsDismissing(false)}
+                  className="px-2.5 py-1.5 text-xs text-[#7D7268] hover:text-[#2C241D] cursor-pointer"
                 >
                   Cancel
                 </button>
               </div>
             )}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

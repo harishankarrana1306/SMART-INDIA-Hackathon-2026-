@@ -19,8 +19,8 @@ class GraphEdge(BaseModel):
 class GraphSubgraphResponse(BaseModel):
     nodes: List[GraphNode]
     edges: List[GraphEdge]
-    total_nodes: int
-    total_edges: int
+    total_nodes: int = 0
+    total_edges: int = 0
     disclaimer: str = "Decision-support only. Not a determination of guilt or risk. All findings require human investigator review."
 
 

@@ -4,16 +4,25 @@
 
 @layer base {
   :root {
-    --color-navy: #0B0D1B;
-    --color-purple: #5F01FB;
-    --color-indigo: #514A85;
-    --color-bg: #F7F7FC;
-    --color-border: #E8E6F1;
-    --color-muted: #6B6980;
+    --color-navy: #2C241D;
+    --color-purple: #9C6644;
+    --color-indigo: #7F4F24;
+    --color-bg: #FBF8F3;
+    --color-sand: #F5EFE6;
+    --color-parchment: #EFE7DC;
+    --color-border: #E5DACB;
+    --color-muted: #7D7268;
+    --color-cognac: #9C6644;
+    --color-espresso: #2C241D;
+  }
+
+  body {
+    background-color: #FBF8F3;
+    color: #2C241D;
   }
 }
 
-/* Custom scrollbars */
+/* Custom scrollbars with warm caramel thumb */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -24,21 +33,21 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #D8CBB9;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #B07D56;
 }
 
 /* Animation utilities */
 @keyframes pulseGlow {
   0%, 100% {
-    box-shadow: 0 0 15px rgba(95, 1, 251, 0.4);
+    box-shadow: 0 0 15px rgba(156, 102, 68, 0.35);
   }
   50% {
-    box-shadow: 0 0 25px rgba(95, 1, 251, 0.8);
+    box-shadow: 0 0 25px rgba(156, 102, 68, 0.7);
   }
 }
 

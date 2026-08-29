@@ -1,5 +1,6 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Any
+# pyrefly: ignore [missing-import]
 import bcrypt
 from jose import jwt, JWTError
 from app.config import settings
@@ -30,10 +31,11 @@ def create_access_token(
     full_name: str,
     expires_delta: Optional[timedelta] = None
 ) -> str:
+    now_utc = datetime.now(timezone.utc)
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = now_utc + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=settings.JWT_EXPIRE_MINUTES)
+        expire = now_utc + timedelta(minutes=settings.JWT_EXPIRE_MINUTES)
     
     to_encode: dict[str, Any] = {
         "sub": str(subject),
@@ -41,7 +43,7 @@ def create_access_token(
         "role": role,
         "full_name": full_name,
         "exp": expire,
-        "iat": datetime.utcnow(),
+        "iat": now_utc,
     }
     encoded_jwt = jwt.encode(
         to_encode,

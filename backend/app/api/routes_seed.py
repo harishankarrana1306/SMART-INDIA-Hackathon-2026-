@@ -14,27 +14,17 @@ async def load_demo_data(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    if current_user.role != "administrator":
+    if current_user.role != "supervisor":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin role required to trigger database seeding.",
+            detail="Supervisor role required to reload prototype fixtures.",
         )
     
     sync_db = get_sync_db()
     try:
-        seed_database(sync_db)
+        seed_database(sync_db, reset=True)
     finally:
         sync_db.close()
-
-    await write_audit_log(
-        db=db,
-        action="seed_data",
-        user_id=current_user.id,
-        target_type="database",
-        target_id="demo_fixtures",
-        metadata={"triggered_by": current_user.username},
-    )
-    await db.commit()
 
     return {
         "status": "success",
