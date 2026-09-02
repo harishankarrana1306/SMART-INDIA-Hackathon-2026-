@@ -247,7 +247,13 @@ class ResolutionService:
         candidates = candidates_res.scalars().all()
 
         results = []
+        seen_pairs = set()
         for c in candidates:
+            pair_key = tuple(sorted([c.entity_a_id, c.entity_b_id]))
+            if pair_key in seen_pairs:
+                continue
+            seen_pairs.add(pair_key)
+
             e1_res = await db.execute(select(GraphEntity).where(GraphEntity.id == c.entity_a_id))
             e2_res = await db.execute(select(GraphEntity).where(GraphEntity.id == c.entity_b_id))
             e1 = e1_res.scalar_one_or_none()

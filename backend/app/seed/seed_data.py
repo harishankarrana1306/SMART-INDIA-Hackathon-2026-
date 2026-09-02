@@ -350,6 +350,9 @@ def seed_database(db: Optional[Session] = None, reset: bool = False):
             {"id": "person_14", "label": "Person", "name": "Suresh Oberoi", "dob": "1984-11-17", "is_masked": False},
             {"id": "person_15", "label": "Person", "name": "Harish Rawat", "dob": "1986-07-09", "is_masked": False},
             {"id": "person_16", "label": "Person", "name": "Michael Smith", "dob": "1991-03-24", "is_masked": False},
+            {"id": "person_17", "label": "Person", "name": "Vikramaditya Singh", "dob": "1990-07-30", "is_masked": False},
+            {"id": "person_18", "label": "Person", "name": "M. Kumar", "dob": "1996-01-22", "is_masked": False},
+            {"id": "person_19", "label": "Person", "name": "Tarun K. Joshi", "dob": "1992-10-10", "is_masked": False},
 
             # Phones (Sensitive: masked by default)
             {"id": "phone_01", "label": "Phone", "name": "+9190XXXXXX01", "number_masked": "+9190XXXXXX01", "number": "+91-98765-43210", "is_masked": True},
@@ -370,6 +373,7 @@ def seed_database(db: Optional[Session] = None, reset: bool = False):
             {"id": "vehicle_03", "label": "Vehicle", "name": "MH-04-EF-9012", "vehicle_type": "Commercial Truck", "is_masked": False},
             {"id": "vehicle_04", "label": "Vehicle", "name": "DL-03-GH-3456", "vehicle_type": "Hatchback (Silver)", "is_masked": False},
             {"id": "vehicle_05", "label": "Vehicle", "name": "DL-05-JK-7890", "vehicle_type": "Van (Grey)", "is_masked": False},
+            {"id": "vehicle_06", "label": "Vehicle", "name": "DL01AB1234", "vehicle_type": "Sedan (White)", "is_masked": False},
 
             # Locations
             {"id": "loc_01", "label": "Location", "name": "Sector 62 Noida Hub", "lat": 28.6280, "lng": 77.3649, "is_masked": False},
@@ -386,6 +390,7 @@ def seed_database(db: Optional[Session] = None, reset: bool = False):
             {"id": "org_03", "label": "Organisation", "name": "Lotus Transit Logistics", "org_type": "Transport Operator", "is_masked": False},
             {"id": "org_04", "label": "Organisation", "name": "Falcon Document Solutions", "org_type": "Documentation Agency", "is_masked": False},
             {"id": "org_05", "label": "Organisation", "name": "Apex Tech Gateway Solutions", "org_type": "Cyber Hosting Proxy", "is_masked": False},
+            {"id": "org_06", "label": "Organisation", "name": "Maya Infotech Solutions", "org_type": "Shell IT Company", "is_masked": False},
 
             # Bank Accounts (Sensitive: masked by default)
             {"id": "acc_01", "label": "BankAccount", "name": "XXXX-XXXX-1122", "account_masked": "XXXX-XXXX-1122", "account_number": "8899001122", "bank_name": "Indus Fictional Bank", "is_masked": True},
@@ -598,34 +603,76 @@ def seed_database(db: Optional[Session] = None, reset: bool = False):
         # ---------------------------------------------------------------------
         # 7. SEED ENTITY MATCH CANDIDATES
         # ---------------------------------------------------------------------
-        # Rohit Sharma vs R Sharma
-        ge_rohit = db.query(GraphEntity).filter(GraphEntity.neo4j_node_id == "person_02").first()
-        ge_rsharma = db.query(GraphEntity).filter(GraphEntity.neo4j_node_id == "person_12").first()
-        ge_rahul = db.query(GraphEntity).filter(GraphEntity.neo4j_node_id == "person_11").first()
+        # 7. SEED INITIAL ENTITY RESOLUTION CANDIDATES (Idempotent)
+        # ---------------------------------------------------------------------
+        def seed_candidate(node_a_id: str, node_b_id: str, conf: float, reason: str):
+            ge_a = db.query(GraphEntity).filter(GraphEntity.neo4j_node_id == node_a_id).first()
+            ge_b = db.query(GraphEntity).filter(GraphEntity.neo4j_node_id == node_b_id).first()
+            if ge_a and ge_b:
+                existing = db.query(EntityMatchCandidate).filter(
+                    (
+                        (EntityMatchCandidate.entity_a_id == ge_a.id)
+                        & (EntityMatchCandidate.entity_b_id == ge_b.id)
+                    )
+                    | (
+                        (EntityMatchCandidate.entity_a_id == ge_b.id)
+                        & (EntityMatchCandidate.entity_b_id == ge_a.id)
+                    )
+                ).first()
+                if not existing:
+                    cand = EntityMatchCandidate(
+                        id=str(uuid.uuid4()),
+                        entity_a_id=ge_a.id,
+                        entity_b_id=ge_b.id,
+                        match_confidence=conf,
+                        match_reason=reason,
+                        status="pending",
+                        created_at=datetime.now(timezone.utc),
+                    )
+                    db.add(cand)
 
-        if ge_rohit and ge_rsharma:
-            cand1 = EntityMatchCandidate(
-                id=str(uuid.uuid4()),
-                entity_a_id=ge_rohit.id,
-                entity_b_id=ge_rsharma.id,
-                match_confidence=0.88,
-                match_reason="Initial abbreviation ('R.') matching surname 'Sharma' across FIC-CASE-0001 records.",
-                status="pending",
-                created_at=datetime.now(timezone.utc),
-            )
-            db.add(cand1)
-
-        if ge_rahul and ge_rsharma:
-            cand2 = EntityMatchCandidate(
-                id=str(uuid.uuid4()),
-                entity_a_id=ge_rahul.id,
-                entity_b_id=ge_rsharma.id,
-                match_confidence=0.92,
-                match_reason="Identical surname and initial match across bank records and subscriber invoices.",
-                status="pending",
-                created_at=datetime.now(timezone.utc),
-            )
-            db.add(cand2)
+        seed_candidate(
+            "person_11",
+            "person_12",
+            0.92,
+            "Identical surname and initial match across bank records and subscriber invoices.",
+        )
+        seed_candidate(
+            "person_10",
+            "person_19",
+            0.94,
+            "Middle initial addition ('Tarun Joshi' vs 'Tarun K. Joshi') verified against passport and banking records.",
+        )
+        seed_candidate(
+            "vehicle_01",
+            "vehicle_06",
+            0.98,
+            "Exact alphanumeric match on RTO vehicle registration number across toll plaza logs ('DL-01-AB-1234' vs 'DL01AB1234').",
+        )
+        seed_candidate(
+            "person_05",
+            "person_17",
+            0.90,
+            "Given name orthographic variation ('Vikram' vs 'Vikramaditya') with identical surname across FIC-CASE-0001 & FIC-CASE-0002.",
+        )
+        seed_candidate(
+            "person_13",
+            "person_18",
+            0.89,
+            "Initial abbreviation ('M.') matching full given name 'Manish' with shared telecom contacts.",
+        )
+        seed_candidate(
+            "person_02",
+            "person_12",
+            0.88,
+            "Initial abbreviation ('R.') matching surname 'Sharma' across FIC-CASE-0001 records.",
+        )
+        seed_candidate(
+            "org_01",
+            "org_06",
+            0.87,
+            "High corporate legal entity name similarity ('Maya Infotech Pvt Ltd' vs 'Maya Infotech Solutions').",
+        )
 
         # ---------------------------------------------------------------------
         # 8. SEED INVESTIGATION ALERTS
