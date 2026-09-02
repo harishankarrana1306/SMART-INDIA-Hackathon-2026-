@@ -179,7 +179,7 @@ class ResolutionService:
                         )
                     )
                 )
-                if existing_res.scalar_one_or_none():
+                if existing_res.scalars().first():
                     continue
 
                 matched = False

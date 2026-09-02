@@ -37,13 +37,8 @@ async def get_dashboard_summary(
     if neo4j_service.is_connected:
         rel_recs = neo4j_service.run_query("MATCH ()-[r]->() RETURN count(r) as c")
         relationships_count = rel_recs[0]["c"] if rel_recs else 0
-        node_recs = neo4j_service.run_query("MATCH (n) RETURN count(n) as c")
-        if node_recs and node_recs[0]["c"] > 0:
-            entities_count = node_recs[0]["c"]
     elif mock_store and hasattr(mock_store, "edges"):
         relationships_count = len(mock_store.edges)
-        if len(mock_store.nodes) > entities_count:
-            entities_count = len(mock_store.nodes)
     else:
         relationships_count = 0
 
@@ -72,7 +67,7 @@ async def get_dashboard_summary(
     rec_counts_res = await db.execute(
         select(SourceRecord.case_id, func.count(SourceRecord.id)).group_by(SourceRecord.case_id)
     )
-    rec_counts_map = dict(rec_counts_res.all())
+    rec_counts_map = {str(row[0]): int(row[1]) for row in rec_counts_res.all()}
 
     recent_cases = []
     for c in cases_list:
@@ -153,13 +148,16 @@ async def get_dashboard_summary(
                 entity_counts[etype] = cnt
 
     formatted_breakdown = {
-        "Person": entity_counts.get("Person", 24),
-        "Phone": entity_counts.get("Phone", 10),
-        "Bank Account": entity_counts.get("BankAccount", 8),
-        "Vehicle": entity_counts.get("Vehicle", 5),
-        "Location": entity_counts.get("Location", 4),
-        "Organization": entity_counts.get("Organisation", 3),
+        "Person": entity_counts.get("Person", 0),
+        "Phone": entity_counts.get("Phone", 0),
+        "Bank Account": entity_counts.get("BankAccount", 0),
+        "Vehicle": entity_counts.get("Vehicle", 0),
+        "Location": entity_counts.get("Location", 0),
+        "Organization": entity_counts.get("Organisation", 0),
     }
+
+    # Total entities is strictly the sum of all discovered investigative entities (excluding Case nodes)
+    entities_count = sum(formatted_breakdown.values())
 
     return DashboardSummaryResponse(
         totals=DashboardTotals(

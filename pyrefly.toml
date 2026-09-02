@@ -1,0 +1,5 @@
+python-interpreter-path = ".venv/bin/python"
+extra-search-paths = [
+  "backend",
+  ".venv/lib/python3.14/site-packages"
+]

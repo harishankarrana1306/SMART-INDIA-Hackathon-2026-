@@ -1,0 +1,17 @@
+[tool.pyrefly]
+python-interpreter-path = ".venv/bin/python"
+extra-search-paths = [
+  "backend",
+  ".venv/lib/python3.14/site-packages"
+]
+disabled-checks = []
+
+[tool.pyright]
+include = ["backend"]
+extraPaths = [
+  "backend",
+  ".venv/lib/python3.14/site-packages"
+]
+pythonVersion = "3.14"
+venvPath = "."
+venv = ".venv"

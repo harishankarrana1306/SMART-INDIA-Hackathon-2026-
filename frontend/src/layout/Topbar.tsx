@@ -169,10 +169,19 @@ export const Topbar: React.FC<TopbarProps> = ({
   const handleSelectSearchResult = (node: GraphNodeData) => {
     setIsSearchOpen(false);
     setSearchQuery('');
+    const caseCode = node.properties?.case_code || 'FIC-CASE-0001';
     if (onNavigateToGraph) {
-      const caseCode = node.properties?.case_code;
       onNavigateToGraph(caseCode, node.id);
     }
+    // Dispatch direct focus event so GraphPage instantly highlights and centers on node
+    window.dispatchEvent(
+      new CustomEvent('netra-focus-node', {
+        detail: {
+          nodeId: node.id,
+          caseCode,
+        },
+      })
+    );
   };
 
   const handleSearchKeyDown = (e: React.KeyboardEvent) => {
@@ -181,7 +190,7 @@ export const Topbar: React.FC<TopbarProps> = ({
         handleSelectSearchResult(searchResults[0]);
       } else if (searchQuery.trim() && onNavigateToGraph) {
         setIsSearchOpen(false);
-        onNavigateToGraph(undefined, searchQuery.trim());
+        onNavigateToGraph('ALL', searchQuery.trim());
       }
     } else if (e.key === 'Escape') {
       setIsSearchOpen(false);

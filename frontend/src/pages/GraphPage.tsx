@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Shield } from 'lucide-react';
+import { Shield, Sparkles } from 'lucide-react';
 import { api } from '../api/client';
 import { GraphNodeData, GraphEdgeData, NodeProfile, EdgeEvidence } from '../types';
 import GraphCanvas from '../components/graph/GraphCanvas';
@@ -14,6 +14,7 @@ interface GraphPageProps {
   initialCaseCode?: string;
   initialNodeId?: string;
   initialHighRiskMode?: boolean;
+  initialHighlightNodeIds?: string[];
   onNavigateToTimeline?: (entityName?: string, caseCode?: string) => void;
 }
 
@@ -61,6 +62,7 @@ export const GraphPage: React.FC<GraphPageProps> = ({
   initialCaseCode,
   initialNodeId,
   initialHighRiskMode = false,
+  initialHighlightNodeIds,
   onNavigateToTimeline,
 }) => {
   const [allNodes, setAllNodes] = useState<GraphNodeData[]>([]);
@@ -85,6 +87,17 @@ export const GraphPage: React.FC<GraphPageProps> = ({
   const [edgeEvidence, setEdgeEvidence] = useState<EdgeEvidence | null>(null);
   const [isDrawerLoading, setIsDrawerLoading] = useState<boolean>(false);
 
+  // Highlighted Entities Cluster (e.g. from alert inspection)
+  const [highlightNodeIds, setHighlightNodeIds] = useState<Set<string>>(
+    new Set(
+      initialHighlightNodeIds && initialHighlightNodeIds.length > 0
+        ? initialHighlightNodeIds
+        : initialNodeId
+        ? [initialNodeId]
+        : []
+    )
+  );
+
   // Update selected case if prop changes
   useEffect(() => {
     if (initialCaseCode) {
@@ -106,6 +119,15 @@ export const GraphPage: React.FC<GraphPageProps> = ({
       handleSelectNode(initialNodeId);
     }
   }, [initialNodeId]);
+
+  // Update highlighted entities if prop changes
+  useEffect(() => {
+    if (initialHighlightNodeIds && initialHighlightNodeIds.length > 0) {
+      setHighlightNodeIds(new Set(initialHighlightNodeIds));
+    } else if (initialNodeId) {
+      setHighlightNodeIds(new Set([initialNodeId]));
+    }
+  }, [initialHighlightNodeIds, initialNodeId]);
 
   // Fetch graph dataset based on selected case scope
   const fetchGraphData = async (caseCode?: string) => {
@@ -131,7 +153,7 @@ export const GraphPage: React.FC<GraphPageProps> = ({
     fetchGraphData(selectedCase);
   }, [selectedCase]);
 
-  // Listen to supervisory reset & entity resolution merges
+  // Listen to supervisory reset, entity resolution merges, and direct search focus events
   useEffect(() => {
     const handleReload = () => {
       setSelectedCase('FIC-CASE-0001');
@@ -143,13 +165,32 @@ export const GraphPage: React.FC<GraphPageProps> = ({
     const handleInvalidate = () => {
       fetchGraphData(selectedCase);
     };
+    const handleFocusNode = async (event: any) => {
+      const { nodeId, caseCode } = event.detail || {};
+      if (!nodeId) return;
+
+      setSearchTerm('');
+      setSelectedType('ALL');
+      setSelectedRelType('ALL');
+
+      if (caseCode && caseCode !== selectedCase) {
+        setSelectedCase(caseCode);
+      } else if (!allNodes.some((n) => n.id === nodeId)) {
+        setSelectedCase('ALL');
+      }
+
+      handleSelectNode(nodeId);
+    };
+
     window.addEventListener('netra-data-reloaded', handleReload);
     window.addEventListener('netra-graph-invalidated', handleInvalidate);
+    window.addEventListener('netra-focus-node', handleFocusNode);
     return () => {
       window.removeEventListener('netra-data-reloaded', handleReload);
       window.removeEventListener('netra-graph-invalidated', handleInvalidate);
+      window.removeEventListener('netra-focus-node', handleFocusNode);
     };
-  }, [selectedCase]);
+  }, [selectedCase, allNodes]);
 
   // Filter nodes & edges based on search, type, and relationships
   const filteredData = useMemo(() => {
@@ -161,13 +202,52 @@ export const GraphPage: React.FC<GraphPageProps> = ({
     }
 
     if (searchTerm.trim()) {
-      const q = searchTerm.toLowerCase();
-      nodesResult = nodesResult.filter((n) => {
+      const q = searchTerm.toLowerCase().trim();
+      const tokens = q.replace(/[,;]/g, ' ').split(/\s+/).filter((w) => w.length >= 2);
+
+      const directMatches = allNodes.filter((n) => {
         const name = (n.properties?.display_name || n.properties?.name || '').toLowerCase();
         const code = (n.properties?.case_code || '').toLowerCase();
+        const aliases = (n.properties?.merged_aliases || []).join(' ').toLowerCase();
         const raw = JSON.stringify(n.properties || {}).toLowerCase();
-        return name.includes(q) || code.includes(q) || raw.includes(q);
+        const targetText = `${name} ${n.id.toLowerCase()} ${code} ${aliases} ${raw}`;
+
+        // 1. Direct query match
+        if (targetText.includes(q)) return true;
+
+        // 2. Check 2-word combinations (e.g. 'priya verma', 'rohit sharma')
+        for (let i = 0; i < tokens.length - 1; i++) {
+          const bigram = `${tokens[i]} ${tokens[i + 1]}`;
+          if (targetText.includes(bigram)) return true;
+        }
+
+        // 3. Check individual tokens (e.g. 'priya', 'rohit')
+        for (const t of tokens) {
+          if (t.length >= 3 && (name.includes(t) || aliases.includes(t))) {
+            return true;
+          }
+        }
+        return false;
       });
+
+      const matchIds = new Set(directMatches.map((n) => n.id));
+
+      if (matchIds.size > 0) {
+        // Keep 1-hop connected edges so investigator sees evidentiary connections
+        edgesResult = allEdges.filter(
+          (e) => matchIds.has(e.source) || matchIds.has(e.target)
+        );
+        const visibleNodeIds = new Set<string>();
+        edgesResult.forEach((e) => {
+          visibleNodeIds.add(e.source);
+          visibleNodeIds.add(e.target);
+        });
+        matchIds.forEach((id) => visibleNodeIds.add(id));
+        nodesResult = allNodes.filter((n) => visibleNodeIds.has(n.id));
+      } else {
+        nodesResult = [];
+        edgesResult = [];
+      }
     }
 
     const validNodeIds = new Set(nodesResult.map((n) => n.id));
@@ -183,12 +263,45 @@ export const GraphPage: React.FC<GraphPageProps> = ({
     return { nodes: nodesResult, edges: edgesResult };
   }, [allNodes, allEdges, selectedType, selectedRelType, searchTerm]);
 
+  // Automatically select and spotlight primary direct match when search term is entered
+  useEffect(() => {
+    if (searchTerm.trim() && filteredData.nodes.length > 0) {
+      const q = searchTerm.toLowerCase().trim();
+      const primary = filteredData.nodes.find((n) => {
+        const name = (n.properties?.display_name || n.properties?.name || '').toLowerCase();
+        return q.includes(name) || (name.length >= 3 && q.includes(name.split(' ')[0]));
+      }) || filteredData.nodes[0];
+
+      if (primary && selectedNodeId !== primary.id) {
+        handleSelectNode(primary.id);
+      }
+    }
+  }, [searchTerm, filteredData.nodes]);
+
   // Node Selection & Profile Loading
   const handleSelectNode = async (nodeId: string) => {
     setSelectedNodeId(nodeId);
     setSelectedEdgeId(null);
     setEdgeEvidence(null);
     setIsDrawerLoading(true);
+
+    // Only attempt to discover an alternative case IF nodes have already loaded and the requested node is definitely missing
+    if (allNodes.length > 0) {
+      const exists = allNodes.some((n) => n.id === nodeId);
+      if (!exists) {
+        try {
+          const prof = await api.getNodeProfile(nodeId);
+          const linkedCase = prof.linked_cases?.[0]?.case_code;
+          if (linkedCase && linkedCase !== selectedCase) {
+            setSelectedCase(linkedCase);
+          } else if (selectedCase !== 'ALL') {
+            setSelectedCase('ALL');
+          }
+        } catch {
+          if (selectedCase !== 'ALL') setSelectedCase('ALL');
+        }
+      }
+    }
 
     try {
       const profile = await api.getNodeProfile(nodeId);
@@ -243,6 +356,7 @@ export const GraphPage: React.FC<GraphPageProps> = ({
     setSelectedEdgeId(null);
     setNodeProfile(null);
     setEdgeEvidence(null);
+    setHighlightNodeIds(new Set());
     setViewMode('focused');
   };
 
@@ -300,6 +414,7 @@ export const GraphPage: React.FC<GraphPageProps> = ({
     setSelectedLayout('cose');
     setViewMode('focused');
     setIsHighRiskFocus(false);
+    setHighlightNodeIds(new Set());
     handleCloseDrawer();
   };
 
@@ -326,6 +441,8 @@ export const GraphPage: React.FC<GraphPageProps> = ({
         onReset={handleResetFilters}
         nodeCount={filteredData.nodes.length}
         edgeCount={filteredData.edges.length}
+        allNodes={allNodes}
+        onSelectEntity={handleSelectNode}
         isHighRiskFocus={isHighRiskFocus}
         onToggleHighRiskFocus={() => {
           if (!isHighRiskFocus) {
@@ -361,6 +478,22 @@ export const GraphPage: React.FC<GraphPageProps> = ({
             </span>
           </div>
 
+          {/* Highlighted Alert/Case Subgraph Cluster Badge */}
+          {highlightNodeIds.size > 1 && (
+            <div className="flex items-center gap-1.5 bg-[#9C6644]/15 text-[#9C6644] px-2.5 py-1 rounded-lg border border-[#9C6644]/35 text-xs shadow-xs flex-shrink-0">
+              <Sparkles className="w-3.5 h-3.5 text-[#9C6644]" />
+              <span className="font-bold text-[11px]">{highlightNodeIds.size} Alert Entities Spotlighted</span>
+              <button
+                type="button"
+                onClick={() => setHighlightNodeIds(new Set())}
+                className="ml-1 text-[10px] font-bold uppercase bg-[#9C6644]/20 hover:bg-[#9C6644]/30 px-1.5 py-0.5 rounded text-[#9C6644] cursor-pointer transition-all"
+                title="Clear spotlight"
+              >
+                Clear
+              </button>
+            </div>
+          )}
+
           {/* High-Risk Focus Active Badge */}
           {isHighRiskFocus && (
             <div className="flex items-center gap-2 bg-[#7F1D1D] text-white px-3 py-1 rounded-lg border border-[#EF4444]/60 text-xs shadow-sm flex-shrink-0">
@@ -388,6 +521,7 @@ export const GraphPage: React.FC<GraphPageProps> = ({
             viewMode={viewMode}
             isHighRiskFocus={isHighRiskFocus}
             highRiskNodeIds={HIGH_RISK_ENTITY_IDS}
+            highlightNodeIds={highlightNodeIds}
             onSelectNode={handleSelectNode}
             onSelectEdge={handleSelectEdge}
             onCanvasClick={handleCloseDrawer}

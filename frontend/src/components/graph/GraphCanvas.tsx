@@ -12,6 +12,7 @@ interface GraphCanvasProps {
   viewMode?: 'focused' | 'all';
   isHighRiskFocus?: boolean;
   highRiskNodeIds?: Set<string>;
+  highlightNodeIds?: Set<string>;
   onSelectNode: (nodeId: string) => void;
   onSelectEdge: (edgeId: string) => void;
   onCanvasClick: () => void;
@@ -53,6 +54,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   viewMode = 'focused',
   isHighRiskFocus = false,
   highRiskNodeIds,
+  highlightNodeIds,
   onSelectNode,
   onSelectEdge,
   onCanvasClick,
@@ -194,14 +196,21 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           'transition-duration': '0.2s',
         },
       },
-      // Focused / Selected Root Node
+      // Focused / Selected Root Node (Prominent Glowing Amber Spotlight Beacon)
       {
         selector: '.focused-root',
         style: {
-          'border-width': 4.5,
-          'border-color': '#9C6644',
+          'border-width': 5.5,
+          'border-color': '#F59E0B',
           'border-opacity': 1.0,
           opacity: 1.0,
+          'shadow-blur': 32,
+          'shadow-color': '#F59E0B',
+          'shadow-opacity': 0.95,
+          'text-background-color': '#FFF8E7',
+          'text-border-color': '#F59E0B',
+          'text-border-width': '2px',
+          'z-index': 9999,
         },
       },
       // Selected Edge Highlight
@@ -253,6 +262,36 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           'shadow-opacity': 0.85,
         },
       },
+      // Highlighted Alert / Case Entities Cluster (Glowing Amber / Gold Spotlight)
+      {
+        selector: '.alert-entity-highlight',
+        style: {
+          opacity: 1.0,
+          'border-width': 5.5,
+          'border-color': '#D97706',
+          'border-opacity': 1.0,
+          'text-opacity': 1.0,
+          'font-weight': 'bold',
+          'shadow-blur': 32,
+          'shadow-color': '#D97706',
+          'shadow-opacity': 0.9,
+          'text-background-color': '#FFFBEB',
+          'text-border-color': '#D97706',
+          'text-border-width': '2px',
+          'z-index': 9990,
+        },
+      },
+      // Edges connecting highlighted alert entities
+      {
+        selector: 'edge.alert-edge-highlight',
+        style: {
+          width: 3.5,
+          'line-color': '#D97706',
+          'target-arrow-color': '#D97706',
+          opacity: 1.0,
+          'z-index': 9990,
+        },
+      },
     ];
 
     const cy = cytoscape({
@@ -297,9 +336,18 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       setHoveredNode(null);
     });
 
+    // ResizeObserver ensures Cytoscape automatically adjusts viewport coordinates when side drawer opens/closes
+    const ro = new ResizeObserver(() => {
+      cy.resize();
+    });
+    if (containerRef.current) {
+      ro.observe(containerRef.current);
+    }
+
     cyRef.current = cy;
 
     return () => {
+      ro.disconnect();
       cy.destroy();
       cyRef.current = null;
     };
@@ -355,58 +403,96 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     });
 
     // Run Layout
-    let layoutOptions: any = { name: layoutName, animate: true, animationDuration: 400 };
+    let layoutOptions: any = { name: layoutName, animate: false, fit: true, padding: 60 };
 
     if (layoutName === 'cose') {
       layoutOptions = {
         name: 'cose',
-        animate: true,
-        animationDuration: 450,
+        animate: false,
+        fit: true,
+        padding: 60,
         nodeRepulsion: () => 450000,
         idealEdgeLength: () => 140,
         edgeElasticity: () => 80,
         nestingFactor: 1.2,
         gravity: 0.25,
         numIter: 1000,
-        padding: 50,
       };
     } else if (layoutName === 'concentric') {
       layoutOptions = {
         name: 'concentric',
-        animate: true,
+        animate: false,
+        fit: true,
+        padding: 60,
         concentric: (node: any) => (node.data('label') === 'Case' ? 3 : node.data('label') === 'Person' ? 2 : 1),
         levelWidth: () => 1,
-        padding: 50,
       };
     } else if (layoutName === 'breadthfirst') {
       layoutOptions = {
         name: 'breadthfirst',
-        animate: true,
+        animate: false,
+        fit: true,
+        padding: 60,
         directed: true,
-        padding: 50,
         spacingFactor: 1.3,
       };
     } else if (layoutName === 'circle') {
       layoutOptions = {
         name: 'circle',
-        animate: true,
-        padding: 50,
+        animate: false,
+        fit: true,
+        padding: 60,
       };
     }
 
     const layout = cy.layout(layoutOptions);
     layout.run();
+    cy.resize();
+    cy.fit(undefined, 60);
   }, [nodes, edges, layoutName]);
 
-  // Handle Focus, Selection & Dimming
+  // Handle Focus, Selection, Alert Spotlight & Dimming
   useEffect(() => {
     const cy = cyRef.current;
-    if (!cy) return;
+    if (!cy || nodes.length === 0) return;
 
     cy.batch(() => {
-      cy.elements().removeClass('dimmed focused-root highlighted high-risk-highlight');
+      cy.elements().removeClass(
+        'dimmed focused-root highlighted high-risk-highlight alert-entity-highlight alert-edge-highlight'
+      );
 
-      if (selectedNodeId) {
+      if (highlightNodeIds && highlightNodeIds.size > 0) {
+        // Dim un-highlighted elements when in focused mode
+        if (viewMode === 'focused') {
+          cy.elements().addClass('dimmed');
+        }
+
+        // Spotlight all target/alert entities
+        highlightNodeIds.forEach((nid) => {
+          const node = cy.getElementById(nid);
+          if (node.length > 0) {
+            node.removeClass('dimmed').addClass('alert-entity-highlight');
+          }
+        });
+
+        // Spotlight edges connecting any of the highlighted entities
+        cy.edges().forEach((edge) => {
+          if (highlightNodeIds.has(edge.data('source')) && highlightNodeIds.has(edge.data('target'))) {
+            edge.removeClass('dimmed').addClass('highlighted alert-edge-highlight');
+          }
+        });
+
+        // If a specific primary node is selected, add focused-root beacon
+        if (selectedNodeId) {
+          const selNode = cy.getElementById(selectedNodeId);
+          if (selNode.length > 0) {
+            selNode.select();
+            selNode.removeClass('dimmed').addClass('focused-root');
+            selNode.connectedEdges().removeClass('dimmed').addClass('highlighted');
+            selNode.connectedEdges().connectedNodes().removeClass('dimmed');
+          }
+        }
+      } else if (selectedNodeId) {
         const selNode = cy.getElementById(selectedNodeId);
         if (selNode.length > 0) {
           selNode.select();
@@ -451,7 +537,60 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         });
       }
     });
-  }, [selectedNodeId, selectedEdgeId, viewMode, isHighRiskFocus, highRiskNodeIds]);
+
+    // Smoothly fly camera to spotlighted cluster or selected node
+    const spotlightNodes =
+      highlightNodeIds && highlightNodeIds.size > 0
+        ? cy.nodes().filter((n) => highlightNodeIds.has(n.id()))
+        : null;
+
+    if (spotlightNodes && spotlightNodes.length > 0) {
+      cy.stop();
+      if (spotlightNodes.length === 1 && selectedNodeId) {
+        const selNode = cy.getElementById(selectedNodeId);
+        if (selNode.length > 0) {
+          cy.animate(
+            {
+              center: { eles: selNode },
+              zoom: Math.max(cy.zoom(), 1.25),
+            },
+            {
+              duration: 500,
+              easing: 'ease-out-cubic',
+            }
+          );
+        }
+      } else {
+        cy.animate(
+          {
+            fit: { eles: spotlightNodes, padding: 80 },
+          },
+          {
+            duration: 500,
+            easing: 'ease-out-cubic',
+          }
+        );
+      }
+    } else if (selectedNodeId) {
+      const selNode = cy.getElementById(selectedNodeId);
+      if (selNode && selNode.length > 0) {
+        cy.stop();
+        cy.animate(
+          {
+            center: { eles: selNode },
+            zoom: Math.max(cy.zoom(), 1.25),
+          },
+          {
+            duration: 500,
+            easing: 'ease-out-cubic',
+          }
+        );
+      }
+    } else {
+      cy.resize();
+      cy.fit(undefined, 50);
+    }
+  }, [nodes, selectedNodeId, selectedEdgeId, viewMode, isHighRiskFocus, highRiskNodeIds, highlightNodeIds]);
 
   // Zoom Controls
   const handleZoomIn = () => cyRef.current?.zoom(cyRef.current.zoom() * 1.25);

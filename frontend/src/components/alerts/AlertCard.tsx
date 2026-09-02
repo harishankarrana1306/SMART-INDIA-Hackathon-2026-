@@ -18,7 +18,7 @@ interface AlertCardProps {
   alert: AlertItem;
   onAcknowledge: (id: string, notes?: string) => void;
   onDismiss: (id: string, reason: string) => void;
-  onViewGraph?: (caseCode?: string, nodeId?: string) => void;
+  onViewGraph?: (caseCode?: string, nodeId?: string, highlightNodeIds?: string[]) => void;
 }
 
 export const AlertCard: React.FC<AlertCardProps> = ({
@@ -46,6 +46,9 @@ export const AlertCard: React.FC<AlertCardProps> = ({
   };
 
   const primaryNodeId = alert.entity_id || (alert.supporting_entity_ids && alert.supporting_entity_ids[0]?.id);
+  const allEntityIds = (alert.supporting_entity_ids && alert.supporting_entity_ids.length > 0)
+    ? alert.supporting_entity_ids.map((e: any) => typeof e === 'string' ? e : e.id).filter(Boolean)
+    : (primaryNodeId ? [primaryNodeId] : []);
 
   return (
     <div className="p-6 rounded-3xl bg-white border border-[#E5DACB] shadow-sm hover:shadow-md transition-all space-y-4 text-[#2C241D]">
@@ -151,7 +154,7 @@ export const AlertCard: React.FC<AlertCardProps> = ({
           {onViewGraph && (
             <button
               type="button"
-              onClick={() => onViewGraph(alert.cases?.[0], primaryNodeId)}
+              onClick={() => onViewGraph && onViewGraph(alert.cases?.[0] || 'FIC-CASE-0001', primaryNodeId, allEntityIds)}
               className="px-3.5 py-1.5 bg-[#F5EFE6] hover:bg-[#EAE1D5] text-[#2C241D] rounded-xl text-xs font-semibold transition-all border border-[#E5DACB] flex items-center gap-1.5 cursor-pointer"
             >
               <Network className="w-3.5 h-3.5 text-[#9C6644]" />

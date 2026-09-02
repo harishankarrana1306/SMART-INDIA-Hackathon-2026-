@@ -280,15 +280,15 @@ class ExecutiveBriefPDFGenerator:
                 Paragraph("Heuristic Rule", table_header),
                 Paragraph("Supporting Evidence", table_header),
             ]]
-            for al in alerts[:4]:
+            for al in alerts:
                 sev_color = "#DC2626" if al.get("severity") == "HIGH" else "#D97706"
                 alert_rows.append([
                     Paragraph(f"<font color='{sev_color}'><b>[{al.get('severity', 'MEDIUM')}]</b></font>", table_cell),
-                    Paragraph(f"<b>{al.get('title', '')}</b><br/>{al.get('description', '')[:90]}...", table_cell),
+                    Paragraph(f"<b>{al.get('title', '')}</b><br/>{al.get('description', '')}", table_cell),
                     Paragraph(al.get("rule_name", "").replace("_", " "), table_cell),
                     Paragraph(", ".join(al.get("supporting_records", ["REC-000101"])), table_cell),
                 ])
-            al_table = Table(alert_rows, colWidths=[65, 235, 140, 100])
+            al_table = Table(alert_rows, colWidths=[65, 240, 135, 100])
             al_table.setStyle(
                 TableStyle([
                     ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F1F5F9")),

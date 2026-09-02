@@ -15,7 +15,7 @@ router = APIRouter(prefix="/ingestion", tags=["Ingestion"])
 async def upload_document(
     file: UploadFile = File(...),
     source_type: str = Form("fir"),
-    case_id: Optional[int] = Form(None),
+    case_id: Optional[str] = Form(None),
     title: Optional[str] = Form(None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

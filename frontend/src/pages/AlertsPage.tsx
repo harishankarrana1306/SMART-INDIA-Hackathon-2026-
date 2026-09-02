@@ -8,7 +8,12 @@ import LoadingState from '../components/common/LoadingState';
 import DisclaimerBanner from '../components/common/DisclaimerBanner';
 
 interface AlertsPageProps {
-  onNavigateToGraph?: (caseCode?: string, nodeId?: string) => void;
+  onNavigateToGraph?: (
+    caseCode?: string,
+    nodeId?: string,
+    highRiskMode?: boolean,
+    highlightNodeIds?: string[]
+  ) => void;
 }
 
 export const AlertsPage: React.FC<AlertsPageProps> = ({ onNavigateToGraph }) => {
@@ -157,7 +162,9 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onNavigateToGraph }) => 
               alert={al}
               onAcknowledge={handleAcknowledge}
               onDismiss={handleDismiss}
-              onViewGraph={(caseCode, nodeId) => onNavigateToGraph && onNavigateToGraph(caseCode, nodeId)}
+              onViewGraph={(caseCode, nodeId, highlightNodeIds) =>
+                onNavigateToGraph && onNavigateToGraph(caseCode, nodeId, false, highlightNodeIds)
+              }
             />
           ))}
         </div>

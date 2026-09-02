@@ -94,7 +94,7 @@ async def write_audit_log(
         ts = custom_timestamp or datetime.now(timezone.utc)
         iso_ts = ts.strftime("%Y-%m-%dT%H:%M:%S")
         meta_str = canonical_metadata_string(metadata)
-        uid_str = str(user_id) if user_id is not None else None
+        uid_str = user_id
 
         record_hash = compute_audit_hash(
             seq_no=seq_no,
@@ -136,7 +136,7 @@ async def write_audit_log(
 def write_sync_audit_log(
     db: Session,
     action: str,
-    user_id: Optional[Any] = None,
+    user_id: Optional[str] = None,
     target_type: Optional[str] = None,
     target_id: Optional[str] = None,
     metadata: Optional[Dict[str, Any]] = None,
@@ -155,7 +155,7 @@ def write_sync_audit_log(
     ts = custom_timestamp or datetime.now(timezone.utc)
     iso_ts = ts.strftime("%Y-%m-%dT%H:%M:%S")
     meta_str = canonical_metadata_string(metadata)
-    uid_str = str(user_id) if user_id is not None else None
+    uid_str = user_id
 
     record_hash = compute_audit_hash(
         seq_no=seq_no,

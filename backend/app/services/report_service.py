@@ -125,8 +125,14 @@ class ReportService:
 
         case_alerts = []
         for al in alerts_all:
-            ent_ids = al.supporting_entity_ids or []
-            if any(eid in all_case_node_ids for eid in ent_ids) or case_obj.case_code.lower() in al.description.lower():
+            raw_ent_ids = al.supporting_entity_ids or []
+            extracted_ids = [
+                item.get("id") if isinstance(item, dict) else str(item)
+                for item in raw_ent_ids
+                if item is not None
+            ]
+            desc = al.description or ""
+            if any(eid in all_case_node_ids for eid in extracted_ids if eid) or case_obj.case_code.lower() in desc.lower():
                 case_alerts.append({
                     "title": al.title,
                     "rule_name": al.rule_name,
@@ -194,6 +200,7 @@ class ReportService:
         for idx, rel in enumerate(key_relationships[:6], start=1):
             evidence_traceability.append({
                 "item_no": idx,
+                # pyrefly: ignore [missing-attribute]
                 "finding": f"{rel['source_name']} → {rel['relationship_type'].replace('_', ' ')} → {rel['target_name']}",
                 "source_record_code": rel["source_record_code"],
                 "document_reference": f"Case File {case_obj.case_code} / {rel['source_record_code']}",

@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.postgres import get_db
+from app.db.neo4j_driver import neo4j_service
 from app.deps import get_current_user
 from app.models.user import User
 from app.core.audit import write_audit_log
@@ -140,9 +141,24 @@ async def reveal_sensitive_field(
     )
     await db.commit()
 
-    # Unmasked raw value
-    props = profile.properties
-    raw_val = props.get("number") or props.get("account_number") or props.get("name") or profile.display_name
+    # Unmasked raw value retrieved directly from graph store
+    raw_node = None
+    if neo4j_service.is_connected:
+        recs = neo4j_service.run_query("MATCH (n {id: $id}) RETURN n", {"id": node_id})
+        if recs:
+            raw_node = recs[0].get("n", {})
+    else:
+        node_obj = neo4j_service.mock_store.get_node(node_id)
+        if node_obj:
+            raw_node = node_obj.get("properties", {})
+
+    raw_props = raw_node or profile.properties
+    raw_val = (
+        raw_props.get("number")
+        or raw_props.get("account_number")
+        or raw_props.get("name")
+        or profile.display_name
+    )
 
     return {
         "node_id": node_id,

@@ -40,7 +40,7 @@ class ExtractionService:
         )
 
         if record_id:
-            query = query.where(ExtractedEntity.source_record_id == str(record_id))
+            query = query.where(ExtractedEntity.source_record_id == record_id)
         if status and status != "ALL":
             query = query.where(ExtractedEntity.status == status)
         if entity_type and entity_type != "ALL":
@@ -50,7 +50,7 @@ class ExtractionService:
 
         query = query.limit(limit).offset(offset)
         res = await db.execute(query)
-        return res.all()
+        return [(row[0], row[1], row[2]) for row in res.all()]
 
     @staticmethod
     async def approve_extraction(
@@ -59,7 +59,7 @@ class ExtractionService:
         user: User,
     ) -> Tuple[ExtractedEntity, bool]:
         """Approves a staged extraction and syncs it to relational & Neo4j graph models."""
-        query = select(ExtractedEntity).where(ExtractedEntity.id == str(extraction_id))
+        query = select(ExtractedEntity).where(ExtractedEntity.id == extraction_id)
         res = await db.execute(query)
         item = res.scalar_one_or_none()
         if not item:
@@ -136,7 +136,7 @@ class ExtractionService:
                 "source_record_id": rec_code,
                 "source_record_type": rec_type,
                 "explanation": f"Extracted from {rec_title} ({rec_code}) and verified by investigator.",
-                "confidence": float(item.confidence) if item.confidence else 0.9,
+                "confidence": item.confidence if item.confidence is not None else 0.9,
                 "date": str(source_rec.ingested_at.date()) if source_rec and source_rec.ingested_at else "2026-08-24",
                 "raw_source_snippet": item.context_snippet or item.raw_value,
             },
@@ -148,7 +148,7 @@ class ExtractionService:
             user_id=user.id,
             action="extraction_approve",
             target_type="extracted_entity",
-            target_id=str(extraction_id),
+            target_id=extraction_id,
             metadata={
                 "entity_type": item.entity_type,
                 "normalized_value": item.normalized_value,
@@ -171,7 +171,7 @@ class ExtractionService:
         reason: Optional[str] = None,
     ) -> ExtractedEntity:
         """Corrects an extracted entity's normalized value/type and approves it."""
-        query = select(ExtractedEntity).where(ExtractedEntity.id == str(extraction_id))
+        query = select(ExtractedEntity).where(ExtractedEntity.id == extraction_id)
         res = await db.execute(query)
         item = res.scalar_one_or_none()
         if not item:
@@ -192,7 +192,7 @@ class ExtractionService:
             user_id=user.id,
             action="extraction_correct",
             target_type="extracted_entity",
-            target_id=str(extraction_id),
+            target_id=extraction_id,
             metadata={
                 "old_value": old_val,
                 "new_value": new_value,
@@ -213,7 +213,7 @@ class ExtractionService:
         user: User,
     ) -> ExtractedEntity:
         """Rejects a staged extraction."""
-        query = select(ExtractedEntity).where(ExtractedEntity.id == str(extraction_id))
+        query = select(ExtractedEntity).where(ExtractedEntity.id == extraction_id)
         res = await db.execute(query)
         item = res.scalar_one_or_none()
         if not item:
@@ -228,7 +228,7 @@ class ExtractionService:
             user_id=user.id,
             action="extraction_reject",
             target_type="extracted_entity",
-            target_id=str(extraction_id),
+            target_id=extraction_id,
             metadata={
                 "entity_type": item.entity_type,
                 "raw_value": item.raw_value,

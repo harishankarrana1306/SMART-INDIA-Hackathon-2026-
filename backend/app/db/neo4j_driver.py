@@ -54,19 +54,67 @@ class MockGraphStore:
             "properties": props,
         }
 
+    def get_node_case_code(self, node_id: str) -> Optional[str]:
+        case_records_map = {
+            "FIC-CASE-0001": ["REC-000101", "REC-000102", "REC-000103", "REC-000104", "REC-000106"],
+            "FIC-CASE-0002": ["REC-000107", "REC-000108", "REC-000109", "REC-000110"],
+            "FIC-CASE-0003": ["REC-000111", "REC-000112"],
+            "FIC-CASE-0004": ["REC-000113", "REC-000114"],
+            "FIC-CASE-0005": ["REC-000115", "REC-000105"],
+            "FIC-CASE-0006": ["REC-000116"],
+        }
+        for e in self.edges.values():
+            if e["source"] == node_id or e["target"] == node_id:
+                other = e["target"] if e["source"] == node_id else e["source"]
+                if other.startswith("case_node_"):
+                    c_num = other.replace("case_node_", "").lstrip("0")
+                    return f"FIC-CASE-000{c_num}"
+                rec = str(e.get("properties", {}).get("source_record_id", "")).upper()
+                for c_code, recs in case_records_map.items():
+                    if rec in recs:
+                        return c_code
+        return None
+
     def get_nodes(self, node_type: Optional[str] = None, search: Optional[str] = None) -> List[Dict[str, Any]]:
         result = []
         for n in self.nodes.values():
             if node_type and node_type.lower() != "all":
                 if n["label"].lower() != node_type.lower():
                     continue
+            props = n["properties"]
             if search:
-                s = search.lower()
-                props = n["properties"]
+                s = search.lower().strip()
                 name = str(props.get("name") or props.get("display_name") or props.get("number_masked") or props.get("case_code") or "").lower()
-                if s not in name and s not in n["id"].lower():
+                nid = n["id"].lower()
+                aliases = " ".join(props.get("merged_aliases") or []).lower()
+                target_text = f"{name} {nid} {aliases}"
+
+                matched = s in target_text
+                if not matched:
+                    tokens = [w for w in s.replace(",", " ").split() if len(w) >= 2]
+                    # Check 2-word combinations (e.g. 'priya verma', 'rohit sharma')
+                    for i in range(len(tokens) - 1):
+                        if f"{tokens[i]} {tokens[i+1]}" in target_text:
+                            matched = True
+                            break
+                    # Check individual significant words (e.g. 'priya', 'rohit')
+                    if not matched:
+                        for t in tokens:
+                            if len(t) >= 3 and (t in name or t in aliases):
+                                matched = True
+                                break
+                if not matched:
                     continue
-            result.append(n)
+
+            # Ensure case_code is populated on properties for client navigation
+            node_copy = dict(n)
+            props_copy = dict(props)
+            if not props_copy.get("case_code"):
+                cc = self.get_node_case_code(n["id"])
+                if cc:
+                    props_copy["case_code"] = cc
+            node_copy["properties"] = props_copy
+            result.append(node_copy)
         return result
 
     def get_node(self, node_id: str) -> Optional[Dict[str, Any]]:
@@ -148,7 +196,7 @@ class MockGraphStore:
         if target_case_node_id and target_case_node_id in self.nodes:
             case_node_ids.add(target_case_node_id)
 
-        target_records = set(case_records_map.get(case_idx, []))
+        target_records: set = set(case_records_map.get(case_idx, [])) if case_idx else set()
 
         # Collect internal case edges
         for eid, edge in self.edges.items():
@@ -233,7 +281,7 @@ class Neo4jService:
             return []
         try:
             with self._driver.session() as session:
-                result = session.run(query, parameters or {})
+                result = session.run(query, parameters or {})  # type: ignore[arg-type]
                 return [record.data() for record in result]
         except Exception as e:
             logger.error(f"Error running Neo4j Cypher query: {e}")

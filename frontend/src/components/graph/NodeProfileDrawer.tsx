@@ -22,6 +22,142 @@ import Badge from '../common/Badge';
 import MaskedValue from '../common/MaskedValue';
 import DisclaimerBanner from '../common/DisclaimerBanner';
 
+const formatPropertyLabel = (key: string): string => {
+  const map: Record<string, string> = {
+    dob: 'Date of Birth',
+    vehicle_type: 'Vehicle Type',
+    org_type: 'Organisation Type',
+    case_code: 'Case Code',
+    lat: 'Latitude',
+    lng: 'Longitude',
+    ifsc: 'IFSC Code',
+    ifsc_code: 'IFSC Code',
+    created_at: 'Registered At',
+    bank_name: 'Bank Name',
+    phone_number: 'Phone Number',
+    account_number: 'Account Number',
+  };
+  if (map[key]) return map[key];
+  return key
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+const getDisplayProperties = (
+  profile: NodeProfile
+): { label: string; value: string; isSensitive: boolean }[] => {
+  const props = profile.properties || {};
+  const labelLower = (profile.label || '').toLowerCase();
+  const results: { label: string; value: string; isSensitive: boolean }[] = [];
+
+  // Special Handling for Phone Entity: Only ONE single row for Phone Number
+  if (labelLower === 'phone') {
+    const maskedPhone =
+      props.number_masked || props.phone_number || props.number || props.name || profile.display_name;
+    results.push({
+      label: 'Phone Number',
+      value: String(maskedPhone),
+      isSensitive: true,
+    });
+
+    const ignoredPhoneKeys = new Set([
+      'id',
+      'label',
+      'name',
+      'display_name',
+      'number',
+      'number_masked',
+      'phone_number',
+      'is_masked',
+      'is_synthetic',
+      'photo_url',
+    ]);
+    for (const [k, v] of Object.entries(props)) {
+      if (ignoredPhoneKeys.has(k) || v === null || v === undefined) continue;
+      results.push({
+        label: formatPropertyLabel(k),
+        value: String(v),
+        isSensitive: false,
+      });
+    }
+    return results;
+  }
+
+  // Special Handling for Bank Account Entity: Only ONE single row for Account Number
+  if (labelLower.includes('account') || labelLower === 'bankaccount') {
+    if (props.bank_name) {
+      results.push({
+        label: 'Bank Name',
+        value: String(props.bank_name),
+        isSensitive: false,
+      });
+    }
+
+    const maskedAcc =
+      props.account_masked || props.account_number || props.name || profile.display_name;
+    results.push({
+      label: 'Account Number',
+      value: String(maskedAcc),
+      isSensitive: true,
+    });
+
+    if (props.ifsc || props.ifsc_code) {
+      results.push({
+        label: 'IFSC Code',
+        value: String(props.ifsc || props.ifsc_code),
+        isSensitive: false,
+      });
+    }
+
+    const ignoredAccKeys = new Set([
+      'id',
+      'label',
+      'name',
+      'display_name',
+      'bank_name',
+      'account_number',
+      'account_masked',
+      'ifsc',
+      'ifsc_code',
+      'is_masked',
+      'is_synthetic',
+      'photo_url',
+    ]);
+    for (const [k, v] of Object.entries(props)) {
+      if (ignoredAccKeys.has(k) || v === null || v === undefined) continue;
+      results.push({
+        label: formatPropertyLabel(k),
+        value: String(v),
+        isSensitive: false,
+      });
+    }
+    return results;
+  }
+
+  // General Entities (Person, Vehicle, Location, Organisation, Case, etc.)
+  const ignoredGeneralKeys = new Set([
+    'id',
+    'label',
+    'display_name',
+    'is_synthetic',
+    'is_masked',
+    'photo_url',
+  ]);
+
+  for (const [k, v] of Object.entries(props)) {
+    if (ignoredGeneralKeys.has(k) || v === null || v === undefined) continue;
+    // Avoid repeating name if it's already shown as display_name in the drawer header
+    if (k === 'name' && String(v) === profile.display_name) continue;
+    results.push({
+      label: formatPropertyLabel(k),
+      value: String(v),
+      isSensitive: false,
+    });
+  }
+
+  return results;
+};
+
 interface NodeProfileDrawerProps {
   profile: NodeProfile | null;
   onClose: () => void;
@@ -49,6 +185,7 @@ export const NodeProfileDrawer: React.FC<NodeProfileDrawerProps> = ({
     profile.label.toLowerCase() === 'phone' || profile.label.toLowerCase().includes('account');
   const isPerson = profile.label.toLowerCase() === 'person';
   const currentPhoto = profile.properties?.photo_url;
+  const displayProperties = React.useMemo(() => getDisplayProperties(profile), [profile]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -214,24 +351,35 @@ export const NodeProfileDrawer: React.FC<NodeProfileDrawerProps> = ({
           <h3 className="text-xs font-bold text-[#5A4D41] uppercase tracking-wider">
             Entity Properties
           </h3>
-          <div className="bg-white rounded-2xl border border-[#E5DACB] p-4 space-y-2.5 shadow-xs">
-            {Object.entries(profile.properties || {}).map(([key, val]) => {
-              if (key === 'photo_url') return null;
-              return (
-                <div key={key} className="flex justify-between items-start text-xs border-b border-[#F5EFE6] pb-2 last:border-0 last:pb-0">
-                  <span className="text-[#7D7268] capitalize font-medium">
-                    {key.replace(/_/g, ' ')}
+          <div className="bg-white rounded-2xl border border-[#E5DACB] p-4 space-y-3 shadow-xs">
+            {displayProperties.length > 0 ? (
+              displayProperties.map((prop, idx) => (
+                <div
+                  key={idx}
+                  className="flex justify-between items-center text-xs border-b border-[#F5EFE6] pb-2.5 last:border-0 last:pb-0 gap-3"
+                >
+                  <span className="text-[#7D7268] font-medium whitespace-nowrap">
+                    {prop.label}
                   </span>
-                  <span className="font-semibold text-[#2C241D] text-right max-w-[180px] break-words">
-                    {isSensitive && (key.includes('number') || key.includes('account')) ? (
-                      <MaskedValue value={String(val)} isSensitive={true} />
+                  <div className="text-right">
+                    {prop.isSensitive ? (
+                      <MaskedValue
+                        nodeId={profile.id}
+                        value={prop.value}
+                        entityType={profile.label}
+                        isSensitive={true}
+                      />
                     ) : (
-                      String(val)
+                      <span className="font-semibold text-[#2C241D] break-words">
+                        {prop.value}
+                      </span>
                     )}
-                  </span>
+                  </div>
                 </div>
-              );
-            })}
+              ))
+            ) : (
+              <p className="text-xs text-[#7D7268] italic">No additional properties recorded.</p>
+            )}
           </div>
         </div>
 

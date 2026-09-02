@@ -339,15 +339,27 @@ class GraphService:
                 })
 
         label = node_raw.get("label", "Entity")
-        props = node_raw.get("properties", {})
+        props = dict(node_raw.get("properties", {}))
         display_name = props.get("name") or props.get("display_name") or props.get("case_code") or node_id
         is_sensitive = label.lower() in ("phone", "bankaccount", "account")
+
+        # Sanitize properties so initial node profile response does not leak raw sensitive identifiers
+        safe_props = dict(props)
+        if label.lower() == "phone":
+            masked_num = props.get("number_masked") or props.get("name") or mask_sensitive_value(props.get("number", ""), "phone")
+            safe_props["number"] = masked_num
+            safe_props["number_masked"] = masked_num
+            safe_props["phone_number"] = masked_num
+        elif label.lower() in ("bankaccount", "account"):
+            masked_acc = props.get("account_masked") or props.get("name") or mask_sensitive_value(props.get("account_number", ""), "bankaccount")
+            safe_props["account_number"] = masked_acc
+            safe_props["account_masked"] = masked_acc
 
         return NodeProfileResponse(
             id=node_id,
             label=label,
             display_name=display_name,
-            properties=props,
+            properties=safe_props,
             is_masked_sensitive=is_sensitive,
             linked_cases=linked_cases,
             connected_entities=connected_entities,

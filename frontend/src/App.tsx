@@ -19,6 +19,7 @@ const MainAppContent: React.FC = () => {
   const [targetCaseCode, setTargetCaseCode] = useState<string | undefined>(undefined);
   const [targetNodeId, setTargetNodeId] = useState<string | undefined>(undefined);
   const [targetHighRiskMode, setTargetHighRiskMode] = useState<boolean>(false);
+  const [targetHighlightNodeIds, setTargetHighlightNodeIds] = useState<string[] | undefined>(undefined);
   const [timelineEntityFilter, setTimelineEntityFilter] = useState<string | undefined>(undefined);
   const [reloadKey, setReloadKey] = useState<number>(0);
 
@@ -29,6 +30,7 @@ const MainAppContent: React.FC = () => {
       setTargetCaseCode('FIC-CASE-0001');
       setTargetNodeId(undefined);
       setTargetHighRiskMode(false);
+      setTargetHighlightNodeIds(undefined);
       setTimelineEntityFilter(undefined);
     };
     window.addEventListener('netra-data-reloaded', handleReload);
@@ -40,13 +42,26 @@ const MainAppContent: React.FC = () => {
     setTargetCaseCode('FIC-CASE-0001');
     setTargetNodeId(undefined);
     setTargetHighRiskMode(false);
+    setTargetHighlightNodeIds(undefined);
     setTimelineEntityFilter(undefined);
   };
 
-  const handleNavigateToGraph = (caseCode?: string, nodeIdOrName?: string, highRiskMode?: boolean) => {
+  const handleNavigateToGraph = (
+    caseCode?: string,
+    nodeIdOrName?: string,
+    highRiskMode?: boolean,
+    highlightNodeIds?: string[]
+  ) => {
     if (caseCode) setTargetCaseCode(caseCode);
     if (nodeIdOrName) setTargetNodeId(nodeIdOrName);
     setTargetHighRiskMode(!!highRiskMode);
+    setTargetHighlightNodeIds(
+      highlightNodeIds && highlightNodeIds.length > 0
+        ? highlightNodeIds
+        : nodeIdOrName
+        ? [nodeIdOrName]
+        : undefined
+    );
     setActiveTab('graph');
   };
 
@@ -147,6 +162,7 @@ const MainAppContent: React.FC = () => {
             initialCaseCode={targetCaseCode || 'FIC-CASE-0001'}
             initialNodeId={targetNodeId}
             initialHighRiskMode={targetHighRiskMode}
+            initialHighlightNodeIds={targetHighlightNodeIds}
             onNavigateToTimeline={handleNavigateToTimeline}
           />
         )}

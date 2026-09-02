@@ -7,7 +7,12 @@ import LoadingState from '../components/common/LoadingState';
 import DisclaimerBanner from '../components/common/DisclaimerBanner';
 
 interface EntityResolutionPageProps {
-  onNavigateToGraph?: (caseCode?: string, nodeId?: string) => void;
+  onNavigateToGraph?: (
+    caseCode?: string,
+    nodeId?: string,
+    highRiskMode?: boolean,
+    highlightNodeIds?: string[]
+  ) => void;
 }
 
 export const EntityResolutionPage: React.FC<EntityResolutionPageProps> = ({ onNavigateToGraph }) => {
@@ -160,7 +165,10 @@ export const EntityResolutionPage: React.FC<EntityResolutionPageProps> = ({ onNa
               candidate={c}
               onApproveMerge={handleApproveMerge}
               onRejectMatch={handleRejectMatch}
-              onViewInGraph={(nodeId) => onNavigateToGraph && onNavigateToGraph(undefined, nodeId)}
+              onViewInGraph={(nodeId) => {
+                const pairIds = [c.entity_a.neo4j_id, c.entity_b.neo4j_id].filter(Boolean);
+                onNavigateToGraph && onNavigateToGraph(c.cases?.[0] || undefined, nodeId, false, pairIds);
+              }}
             />
           ))}
         </div>

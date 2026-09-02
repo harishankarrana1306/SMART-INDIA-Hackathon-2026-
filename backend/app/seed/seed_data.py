@@ -11,12 +11,13 @@ IMPORTANT:
 """
 
 import uuid
+from typing import Optional
 from datetime import datetime, date, timezone
 from sqlalchemy.orm import Session
 from app.db.postgres import get_sync_db, sync_engine
 from app.db.base import Base
 from app.core.security import get_password_hash
-from app.core.audit import write_sync_audit_log
+from app.core.audit import write_sync_audit_log, reset_audit_cache
 from app.db.neo4j_driver import neo4j_service
 from app.models.user import User
 from app.models.case import Case
@@ -28,7 +29,7 @@ from app.models.audit_log import AuditLog
 from app.models.report import CaseBrief
 
 
-def seed_database(db: Session = None, reset: bool = False):
+def seed_database(db: Optional[Session] = None, reset: bool = False):
     close_db = False
     if db is None:
         Base.metadata.create_all(bind=sync_engine)
@@ -51,6 +52,7 @@ def seed_database(db: Session = None, reset: bool = False):
 
         if reset:
             print("[+] Performing atomic reset of database tables and mock graph store...")
+            reset_audit_cache()
             db.query(AuditLog).delete()
             db.query(Alert).delete()
             db.query(EntityMatchCandidate).delete()
