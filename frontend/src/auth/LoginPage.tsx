@@ -1,8 +1,14 @@
 import React, { useState } from 'react';
 import { useAuth } from './AuthContext';
+import { api } from '../api/client';
+import { User as UserType } from '../types';
 import { Landmark, AlertCircle, ArrowRight, Lock, User, ShieldCheck, Activity, Eye, EyeOff } from 'lucide-react';
 
-export const LoginPage: React.FC = () => {
+interface LoginPageProps {
+  onLoginSuccess?: (data: { token: string; user: UserType }) => void;
+}
+
+export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const { login } = useAuth();
   const [username, setUsername] = useState('investigator1');
   const [password, setPassword] = useState('Investigator@123');
@@ -13,13 +19,19 @@ export const LoginPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setError(null);
     setIsSubmitting(true);
     try {
-      await login(username, password);
+      if (onLoginSuccess) {
+        // Authenticate credentials against backend API
+        const res = await api.login(username, password);
+        onLoginSuccess({ token: res.access_token, user: res.user });
+      } else {
+        await login(username, password);
+      }
     } catch (err: any) {
       setError(err.message || 'Login failed. Please check credentials.');
-    } finally {
       setIsSubmitting(false);
     }
   };
@@ -67,20 +79,20 @@ export const LoginPage: React.FC = () => {
 
       {/* Main Container with Beige Hero Artwork */}
       <div className="flex-1 relative flex items-center justify-center overflow-hidden">
-        {/* Warm Beige & Caramel Cinematic Background Image (Anchored to bottom) */}
+        {/* Warm Beige & Caramel Cinematic Background Image (Static, Single Pristine Artwork) */}
         <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
           <img
-            src="/netra_beige_hero_bg.jpg"
+            src="/netra_beige_hero_bg_ultra.jpg"
             alt="NETRA Criminal Network Intelligence"
-            className="w-full h-full object-cover object-bottom scale-100"
+            className="w-full h-full object-cover object-bottom"
           />
           {/* Soft ambient gradient overlay to guarantee perfect contrast and depth */}
-          <div className="absolute inset-0 bg-gradient-to-r from-[#EFEAE2]/50 via-transparent to-[#EFEAE2]/30" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#EFEAE2]/35 via-transparent to-[#EFEAE2]/20" />
         </div>
 
         {/* Hero Grid: Left Content (Elevated to top with high contrast) + Right 3D Bulging Card */}
         <main className="w-full max-w-7xl mx-auto px-6 sm:px-10 py-2 sm:py-4 z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start lg:items-center">
-          {/* Left Column: Welcome text, titles, descriptions & badges (Positioned up in clean space) */}
+          {/* Left Column: Welcome text, titles, descriptions & badges */}
           <div className="lg:col-span-7 flex flex-col justify-start self-start pt-0 lg:pt-1 space-y-3 pr-0 lg:pr-6">
             <div className="p-4 sm:p-6 -ml-4 rounded-3xl bg-gradient-to-br from-[#FAF7F2]/85 via-[#F5EFE6]/50 to-transparent backdrop-blur-xs border border-[#E5DACB]/40 shadow-sm space-y-2.5">
               <span className="text-xs font-black uppercase tracking-widest text-[#7A4B27]">
@@ -240,7 +252,7 @@ export const LoginPage: React.FC = () => {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-full py-3.5 px-6 text-white text-xs font-black uppercase tracking-wider rounded-2xl transition-all flex items-center justify-center gap-2 cursor-pointer mt-3 transform active:translate-y-0.5 disabled:opacity-50"
+                    className="w-full py-3.5 px-6 text-white text-xs font-black uppercase tracking-wider rounded-2xl transition-all flex items-center justify-center gap-2 cursor-pointer mt-3 transform active:translate-y-0.5 disabled:opacity-60"
                     style={{
                       background: 'linear-gradient(180deg, #9C6644 0%, #824E26 40%, #633B18 100%)',
                       boxShadow:
@@ -248,7 +260,7 @@ export const LoginPage: React.FC = () => {
                       border: '1px solid #B07D58',
                     }}
                   >
-                    <span>{isSubmitting ? 'Authenticating...' : 'Sign In'}</span>
+                    <span>{isSubmitting ? 'Signing In...' : 'Sign In'}</span>
                     <ArrowRight className="w-4 h-4 stroke-[2.5]" />
                   </button>
                 </form>
@@ -261,8 +273,9 @@ export const LoginPage: React.FC = () => {
                   <div className="grid grid-cols-2 gap-2.5">
                     <button
                       type="button"
+                      disabled={isSubmitting}
                       onClick={() => handleQuickSelect('investigator1', 'Investigator@123')}
-                      className="py-2.5 px-4 rounded-2xl text-xs font-bold transition-all text-center cursor-pointer transform active:translate-y-0.5"
+                      className="py-2.5 px-4 rounded-2xl text-xs font-bold transition-all text-center cursor-pointer transform active:translate-y-0.5 disabled:opacity-50"
                       style={
                         username === 'investigator1'
                           ? {
@@ -283,8 +296,9 @@ export const LoginPage: React.FC = () => {
                     </button>
                     <button
                       type="button"
+                      disabled={isSubmitting}
                       onClick={() => handleQuickSelect('supervisor1', 'Supervisor@123')}
-                      className="py-2.5 px-4 rounded-2xl text-xs font-bold transition-all text-center cursor-pointer transform active:translate-y-0.5"
+                      className="py-2.5 px-4 rounded-2xl text-xs font-bold transition-all text-center cursor-pointer transform active:translate-y-0.5 disabled:opacity-50"
                       style={
                         username === 'supervisor1'
                           ? {

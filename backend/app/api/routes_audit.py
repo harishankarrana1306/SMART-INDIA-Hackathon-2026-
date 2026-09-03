@@ -4,13 +4,53 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from app.db.postgres import get_db
-from app.deps import require_role
+from app.deps import get_current_user, require_role
 from app.models.user import User
 from app.models.audit_log import AuditLog
-from app.core.audit import verify_audit_chain
-from app.schemas.audit import AuditLogResponse, AuditChainVerifyResponse
+from app.core.audit import write_audit_log, verify_audit_chain
+from app.schemas.audit import AuditLogResponse, AuditChainVerifyResponse, AuditRecordRequest
 
 router = APIRouter(prefix="/audit", tags=["Audit & Cryptographic Chain"])
+
+
+@router.post("/record", response_model=AuditLogResponse)
+async def record_user_audit_action(
+    payload: AuditRecordRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Appends a real-time investigator or supervisor interaction/click event
+    into the tamper-evident SHA-256 hash chain with real-time timestamp.
+    """
+    ts = datetime.now(timezone.utc)
+    log_entry = await write_audit_log(
+        db=db,
+        action=payload.action,
+        user_id=current_user.id,
+        target_type=payload.target_type,
+        target_id=payload.target_id,
+        metadata=payload.metadata,
+        custom_timestamp=ts,
+    )
+    await db.commit()
+    await db.refresh(log_entry)
+    ts_entry = log_entry.timestamp
+    if ts_entry.tzinfo is None:
+        ts_entry = ts_entry.replace(tzinfo=timezone.utc)
+    return AuditLogResponse(
+        id=log_entry.id,
+        seq_no=log_entry.seq_no,
+        user_id=log_entry.user_id,
+        username=current_user.username,
+        action=log_entry.action,
+        target_type=log_entry.target_type,
+        target_id=log_entry.target_id,
+        metadata_json=log_entry.metadata_json,
+        timestamp=ts_entry,
+        prev_hash=log_entry.prev_hash,
+        record_hash=log_entry.record_hash,
+    )
 
 
 @router.get("/logs", response_model=List[AuditLogResponse])
@@ -33,6 +73,9 @@ async def list_audit_logs(
     result = await db.execute(query)
     logs_res = []
     for log, uname in result.all():
+        ts_log = log.timestamp
+        if ts_log.tzinfo is None:
+            ts_log = ts_log.replace(tzinfo=timezone.utc)
         logs_res.append(
             AuditLogResponse(
                 id=log.id,
@@ -43,7 +86,7 @@ async def list_audit_logs(
                 target_type=log.target_type,
                 target_id=log.target_id,
                 metadata_json=log.metadata_json,
-                timestamp=log.timestamp,
+                timestamp=ts_log,
                 prev_hash=log.prev_hash,
                 record_hash=log.record_hash,
             )

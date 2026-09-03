@@ -8,7 +8,7 @@ from app.schemas.graph import (
     EdgeEvidenceResponse,
     RevealSensitiveRequest,
 )
-from app.schemas.audit import AuditLogResponse, AuditChainVerifyResponse
+from app.schemas.audit import AuditLogResponse, AuditChainVerifyResponse, AuditRecordRequest
 
 __all__ = [
     "TokenResponse",
@@ -26,4 +26,5 @@ __all__ = [
     "RevealSensitiveRequest",
     "AuditLogResponse",
     "AuditChainVerifyResponse",
+    "AuditRecordRequest",
 ]

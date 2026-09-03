@@ -25,3 +25,10 @@ class AuditChainVerifyResponse(BaseModel):
     first_broken_seq: Optional[int] = None
     message: str
     verified_at: datetime
+
+
+class AuditRecordRequest(BaseModel):
+    action: str
+    target_type: Optional[str] = "ui_interaction"
+    target_id: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None

@@ -8,6 +8,7 @@ export interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (username: string, password: string) => Promise<void>;
+  setSessionData: (token: string, user: User) => void;
   logout: () => void;
 }
 
@@ -48,6 +49,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const setSessionData = (tokenVal: string, userVal: User) => {
+    setToken(tokenVal);
+    setUser(userVal);
+    api.setToken(tokenVal);
+    localStorage.setItem('cna_jwt_token', tokenVal);
+    localStorage.setItem('cna_user', JSON.stringify(userVal));
+  };
+
   const logout = () => {
     setToken(null);
     setUser(null);
@@ -64,6 +73,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: !!token && !!user,
         isLoading,
         login,
+        setSessionData,
         logout,
       }}
     >

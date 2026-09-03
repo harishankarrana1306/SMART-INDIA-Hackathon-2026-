@@ -76,3 +76,43 @@ async def test_audit_hash_chain_and_tamper_detection(client, db_session):
     assert data_tampered["valid"] is False
     assert data_tampered["first_broken_seq"] == 3
     assert "TAMPER ALERT" in data_tampered["message"]
+
+
+@pytest.mark.asyncio
+async def test_realtime_audit_record_endpoint(client, db_session):
+    # Setup test investigator
+    user = User(
+        id="u-inv-realtime",
+        username="investigator_rt",
+        password_hash=get_password_hash("Investigator@123"),
+        full_name="Realtime Investigator",
+        role="investigator",
+        is_active=True,
+    )
+    db_session.add(user)
+    await db_session.commit()
+
+    login_resp = await client.post(
+        "/api/auth/login",
+        json={"username": "investigator_rt", "password": "Investigator@123"},
+    )
+    token = login_resp.json()["access_token"]
+
+    # Record real-time user click event
+    click_resp = await client.post(
+        "/api/audit/record",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "action": "user_click",
+            "target_type": "ui_element",
+            "target_id": "Explore Network Button",
+            "metadata": {"active_tab": "dashboard", "click_count": 1},
+        },
+    )
+    assert click_resp.status_code == 200
+    click_data = click_resp.json()
+    assert click_data["action"] == "user_click"
+    assert click_data["username"] == "investigator_rt"
+    assert click_data["target_id"] == "Explore Network Button"
+    assert click_data["record_hash"] is not None
+    assert click_data["seq_no"] > 0

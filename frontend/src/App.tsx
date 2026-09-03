@@ -12,9 +12,10 @@ import BriefPage from './pages/BriefPage';
 import TimelinePage from './pages/TimelinePage';
 import AuditPage from './pages/AuditPage';
 import LoadingState from './components/common/LoadingState';
+import { useRealtimeAuditTracker } from './hooks/useRealtimeAuditTracker';
 
 const MainAppContent: React.FC = () => {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading, user, setSessionData } = useAuth();
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [targetCaseCode, setTargetCaseCode] = useState<string | undefined>(undefined);
   const [targetNodeId, setTargetNodeId] = useState<string | undefined>(undefined);
@@ -22,6 +23,13 @@ const MainAppContent: React.FC = () => {
   const [targetHighlightNodeIds, setTargetHighlightNodeIds] = useState<string[] | undefined>(undefined);
   const [timelineEntityFilter, setTimelineEntityFilter] = useState<string | undefined>(undefined);
   const [reloadKey, setReloadKey] = useState<number>(0);
+
+  // Real-time audit recording of clicks and actions across the application
+  useRealtimeAuditTracker(activeTab);
+
+  const handleLoginSuccess = (data: { token: string; user: any }) => {
+    setSessionData(data.token, data.user);
+  };
 
   // Full application state reset listener on demo data reload
   useEffect(() => {
@@ -134,62 +142,64 @@ const MainAppContent: React.FC = () => {
   }
 
   if (!isAuthenticated) {
-    return <LoginPage />;
+    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
   }
 
   return (
-    <AppShell
-      activeTab={activeTab}
-      onTabChange={(tab) => {
-        setActiveTab(tab);
-      }}
-      title={headerInfo.title}
-      subtitle={headerInfo.subtitle}
-      onRefreshData={handleRefreshData}
-      onNavigateToGraph={handleNavigateToGraph}
-      onNavigateToAlerts={() => setActiveTab('alerts')}
-      onNavigateToTimeline={handleNavigateToTimeline}
-    >
-      <div key={reloadKey} className="h-full w-full">
-        {activeTab === 'dashboard' && (
-          <DashboardPage
-            onNavigateToGraph={handleNavigateToGraph}
-            onNavigateToAlerts={() => setActiveTab('alerts')}
-          />
-        )}
-        {activeTab === 'graph' && (
-          <GraphPage
-            initialCaseCode={targetCaseCode || 'FIC-CASE-0001'}
-            initialNodeId={targetNodeId}
-            initialHighRiskMode={targetHighRiskMode}
-            initialHighlightNodeIds={targetHighlightNodeIds}
-            onNavigateToTimeline={handleNavigateToTimeline}
-          />
-        )}
-        {activeTab === 'ingestion' && (
-          <IngestionPage onNavigateToReview={() => setActiveTab('extraction')} />
-        )}
-        {activeTab === 'extraction' && (
-          <ExtractionReviewPage onNavigateToGraph={handleNavigateToGraph} />
-        )}
-        {activeTab === 'resolution' && (
-          <EntityResolutionPage onNavigateToGraph={handleNavigateToGraph} />
-        )}
-        {activeTab === 'alerts' && (
-          <AlertsPage onNavigateToGraph={handleNavigateToGraph} />
-        )}
-        {activeTab === 'brief' && <BriefPage />}
-        {activeTab === 'timeline' && (
-          <TimelinePage
-            initialEntityFilter={timelineEntityFilter}
-            initialCaseCode={targetCaseCode || 'FIC-CASE-0001'}
-            onNavigateToGraph={handleNavigateToGraph}
-          />
-        )}
-        {activeTab === 'audit' && user?.role === 'supervisor' && <AuditPage />}
+    <div className="h-full w-full">
+        <AppShell
+          activeTab={activeTab}
+          onTabChange={(tab) => {
+            setActiveTab(tab);
+          }}
+          title={headerInfo.title}
+          subtitle={headerInfo.subtitle}
+          onRefreshData={handleRefreshData}
+          onNavigateToGraph={handleNavigateToGraph}
+          onNavigateToAlerts={() => setActiveTab('alerts')}
+          onNavigateToTimeline={handleNavigateToTimeline}
+        >
+          <div key={reloadKey} className="h-full w-full">
+            {activeTab === 'dashboard' && (
+              <DashboardPage
+                onNavigateToGraph={handleNavigateToGraph}
+                onNavigateToAlerts={() => setActiveTab('alerts')}
+              />
+            )}
+            {activeTab === 'graph' && (
+              <GraphPage
+                initialCaseCode={targetCaseCode || 'FIC-CASE-0001'}
+                initialNodeId={targetNodeId}
+                initialHighRiskMode={targetHighRiskMode}
+                initialHighlightNodeIds={targetHighlightNodeIds}
+                onNavigateToTimeline={handleNavigateToTimeline}
+              />
+            )}
+            {activeTab === 'ingestion' && (
+              <IngestionPage onNavigateToReview={() => setActiveTab('extraction')} />
+            )}
+            {activeTab === 'extraction' && (
+              <ExtractionReviewPage onNavigateToGraph={handleNavigateToGraph} />
+            )}
+            {activeTab === 'resolution' && (
+              <EntityResolutionPage onNavigateToGraph={handleNavigateToGraph} />
+            )}
+            {activeTab === 'alerts' && (
+              <AlertsPage onNavigateToGraph={handleNavigateToGraph} />
+            )}
+            {activeTab === 'brief' && <BriefPage />}
+            {activeTab === 'timeline' && (
+              <TimelinePage
+                initialEntityFilter={timelineEntityFilter}
+                initialCaseCode={targetCaseCode || 'FIC-CASE-0001'}
+                onNavigateToGraph={handleNavigateToGraph}
+              />
+            )}
+            {activeTab === 'audit' && user?.role === 'supervisor' && <AuditPage />}
+          </div>
+        </AppShell>
       </div>
-    </AppShell>
-  );
+    );
 };
 
 export const App: React.FC = () => {

@@ -170,6 +170,28 @@ class ApiClient {
     return this.request<AuditChainVerification>('/audit/verify-chain');
   }
 
+  async recordAuditAction(
+    action: string,
+    targetType?: string,
+    targetId?: string,
+    metadata?: Record<string, any>
+  ): Promise<AuditLog | null> {
+    try {
+      return await this.request<AuditLog>('/audit/record', {
+        method: 'POST',
+        body: JSON.stringify({
+          action,
+          target_type: targetType || 'ui_interaction',
+          target_id: targetId,
+          metadata: metadata || {},
+        }),
+      });
+    } catch (e) {
+      console.warn('Real-time audit log sync notice:', e);
+      return null;
+    }
+  }
+
   // --- Demo Seeder ---
   async loadDemoData(): Promise<{ status: string; message: string }> {
     return this.request('/seed/load-demo-data', { method: 'POST' });

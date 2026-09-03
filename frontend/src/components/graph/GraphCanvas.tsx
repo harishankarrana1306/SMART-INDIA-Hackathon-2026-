@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import cytoscape, { Core, EventObject } from 'cytoscape';
-import { ZoomIn, ZoomOut, Maximize2, Crosshair, Eye, Layers } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize2, Crosshair } from 'lucide-react';
 import { GraphNodeData, GraphEdgeData } from '../../types';
 
 interface GraphCanvasProps {
@@ -70,7 +70,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     if (!containerRef.current) return;
 
     const styles: any[] = [
-      // Base Node Style: Colored circular node with tiny centered glyph icon
+      // Base Node Style: Colored circular node with tiny centered glyph icon & physical drop shadow
       {
         selector: 'node',
         style: {
@@ -94,6 +94,11 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           'border-width': 2.5,
           'border-color': '#FFFFFF',
           'border-opacity': 0.95,
+          'shadow-blur': 16,
+          'shadow-color': 'rgba(45, 25, 12, 0.36)',
+          'shadow-opacity': 0.85,
+          'shadow-offset-y': 4,
+          'shadow-offset-x': 0,
           'background-fit': 'contain',
           'background-clip': 'none',
           'background-repeat': 'no-repeat',
@@ -353,6 +358,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     };
   }, []);
 
+
+
   // Update Cytoscape Graph Data on Change
   useEffect(() => {
     const cy = cyRef.current;
@@ -606,60 +613,62 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   };
 
   return (
-    <div className="w-full h-full relative overflow-hidden bg-[#FBF8F3]" ref={containerRef}>
-      {/* Zoom / Navigation Floating Toolbar */}
-      <div className="absolute bottom-5 left-5 z-10 flex items-center gap-1.5 bg-[#FFFDFB]/95 backdrop-blur-md p-1.5 rounded-2xl border border-[#E2D7C8] shadow-md">
+    <div className="w-full h-full relative overflow-hidden bg-[#FBF8F3] select-none">
+      {/* Cytoscape Mount Container (Permanent 2D View) */}
+      <div
+        ref={containerRef}
+        className="w-full h-full relative z-0"
+      />
+
+      {/* Compact NETRA Brown/Copper Control Strip */}
+      <div
+        className="absolute bottom-12 sm:bottom-14 left-4 z-20 flex flex-wrap items-center gap-1.5 p-1.5 rounded-2xl border border-[#4A3222] shadow-2xl backdrop-blur-md"
+        style={{
+          background: 'linear-gradient(145deg, rgba(36, 23, 16, 0.96) 0%, rgba(22, 13, 7, 0.98) 100%)',
+          boxShadow: '0 16px 36px -8px rgba(25, 14, 7, 0.55), inset 0 1px 1.5px rgba(255, 255, 255, 0.14)',
+        }}
+      >
+        {/* Reset View */}
+        <button
+          type="button"
+          onClick={handleFit}
+          className="p-2 text-[#D6C7B7] hover:text-white hover:bg-[#3D2819] rounded-xl transition-all cursor-pointer flex items-center gap-1.5 text-xs font-bold"
+          title="Reset View (Fit Network to Screen)"
+        >
+          <Maximize2 className="w-3.5 h-3.5 text-[#DDA15E]" />
+          <span className="hidden md:inline">Reset View</span>
+        </button>
+
+        {/* Focus Selected */}
+        <button
+          type="button"
+          onClick={handleCenter}
+          className="p-2 text-[#D6C7B7] hover:text-white hover:bg-[#3D2819] rounded-xl transition-all cursor-pointer flex items-center gap-1.5 text-xs font-bold"
+          title="Focus Selected Entity"
+        >
+          <Crosshair className="w-3.5 h-3.5 text-[#DDA15E]" />
+          <span className="hidden md:inline">Focus Selected</span>
+        </button>
+
+        <div className="w-px h-4 bg-[#4A3222] my-auto" />
+
+        {/* Zoom In & Zoom Out */}
         <button
           type="button"
           onClick={handleZoomIn}
-          className="p-2 text-[#7D7268] hover:text-[#2C241D] hover:bg-[#F5EFE6] rounded-xl transition-all cursor-pointer"
+          className="p-2 text-[#D6C7B7] hover:text-white hover:bg-[#3D2819] rounded-xl transition-all cursor-pointer"
           title="Zoom In"
         >
-          <ZoomIn className="w-4 h-4" />
+          <ZoomIn className="w-3.5 h-3.5" />
         </button>
         <button
           type="button"
           onClick={handleZoomOut}
-          className="p-2 text-[#7D7268] hover:text-[#2C241D] hover:bg-[#F5EFE6] rounded-xl transition-all cursor-pointer"
+          className="p-2 text-[#D6C7B7] hover:text-white hover:bg-[#3D2819] rounded-xl transition-all cursor-pointer"
           title="Zoom Out"
         >
-          <ZoomOut className="w-4 h-4" />
+          <ZoomOut className="w-3.5 h-3.5" />
         </button>
-        <div className="w-px h-4 bg-[#E2D7C8] my-auto" />
-        <button
-          type="button"
-          onClick={handleFit}
-          className="p-2 text-[#7D7268] hover:text-[#2C241D] hover:bg-[#F5EFE6] rounded-xl transition-all cursor-pointer"
-          title="Fit to Screen"
-        >
-          <Maximize2 className="w-4 h-4" />
-        </button>
-        <button
-          type="button"
-          onClick={handleCenter}
-          className="p-2 text-[#7D7268] hover:text-[#2C241D] hover:bg-[#F5EFE6] rounded-xl transition-all cursor-pointer"
-          title="Center Selection"
-        >
-          <Crosshair className="w-4 h-4" />
-        </button>
-        {onViewModeChange && (
-          <>
-            <div className="w-px h-4 bg-[#E2D7C8] my-auto" />
-            <button
-              type="button"
-              onClick={() => onViewModeChange(viewMode === 'focused' ? 'all' : 'focused')}
-              className={`p-2 rounded-xl transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer ${
-                viewMode === 'focused'
-                  ? 'bg-[#9C6644] text-white shadow-xs'
-                  : 'text-[#7D7268] hover:text-[#2C241D] hover:bg-[#F5EFE6]'
-              }`}
-              title={viewMode === 'focused' ? 'Show Full Network' : 'Focus Active Cluster'}
-            >
-              {viewMode === 'focused' ? <Layers className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              <span className="hidden sm:inline">{viewMode === 'focused' ? 'Focus Mode' : 'All Nodes'}</span>
-            </button>
-          </>
-        )}
       </div>
 
       {/* Hover Node Tooltip */}

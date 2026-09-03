@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   FolderGit2,
   Network,
@@ -26,6 +26,149 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 }) => {
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Hero Intelligence Network Canvas & Parallax
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const bannerRef = useRef<HTMLDivElement | null>(null);
+  const parallaxOffset = useRef({ currentX: 0, currentY: 0, targetX: 0, targetY: 0 });
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animationFrameId: number;
+    let isRunning = true;
+
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    const resize = () => {
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+    };
+
+    resize();
+    window.addEventListener('resize', resize);
+
+    // Network Node particles
+    const particleCount = 24;
+    const particles = Array.from({ length: particleCount }, () => ({
+      x: Math.random() * (canvas.clientWidth || 800),
+      y: Math.random() * (canvas.clientHeight || 200),
+      vx: (Math.random() - 0.5) * 0.28,
+      vy: (Math.random() - 0.5) * 0.24,
+      radius: Math.random() * 1.8 + 1.2,
+      color: Math.random() > 0.4 ? 'rgba(221, 161, 94, ' : 'rgba(196, 141, 94, ',
+      baseAlpha: Math.random() * 0.35 + 0.25,
+      phase: Math.random() * Math.PI * 2,
+    }));
+
+    const render = () => {
+      if (!canvas || !ctx) return;
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      ctx.clearRect(0, 0, w, h);
+
+      // Smooth parallax interpolation (restrained, fluid easing)
+      parallaxOffset.current.currentX += (parallaxOffset.current.targetX - parallaxOffset.current.currentX) * 0.08;
+      parallaxOffset.current.currentY += (parallaxOffset.current.targetY - parallaxOffset.current.currentY) * 0.08;
+
+      ctx.save();
+      ctx.translate(parallaxOffset.current.currentX, parallaxOffset.current.currentY);
+
+      // Update and draw particles
+      particles.forEach((p) => {
+        if (!prefersReducedMotion) {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.phase += 0.02;
+
+          if (p.x < 0) p.x = w;
+          if (p.x > w) p.x = 0;
+          if (p.y < 0) p.y = h;
+          if (p.y > h) p.y = 0;
+        }
+
+        const alpha = p.baseAlpha + Math.sin(p.phase) * 0.12;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fillStyle = `${p.color}${Math.max(0.05, alpha)})`;
+        ctx.fill();
+
+        // Warm subtle ambient glow ring
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius * 2.6, 0, Math.PI * 2);
+        ctx.fillStyle = `${p.color}${Math.max(0.02, alpha * 0.22)})`;
+        ctx.fill();
+      });
+
+      // Draw faint interconnecting intelligence lines between nearby nodes
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x;
+          const dy = particles[i].y - particles[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist < 115) {
+            const lineAlpha = (1 - dist / 115) * 0.22;
+            ctx.beginPath();
+            ctx.moveTo(particles[i].x, particles[i].y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.strokeStyle = `rgba(196, 141, 94, ${lineAlpha})`;
+            ctx.lineWidth = 0.85;
+            ctx.stroke();
+          }
+        }
+      }
+
+      ctx.restore();
+
+      if (!prefersReducedMotion && isRunning) {
+        animationFrameId = requestAnimationFrame(render);
+      }
+    };
+
+    render();
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        isRunning = false;
+        cancelAnimationFrame(animationFrameId);
+      } else if (!prefersReducedMotion) {
+        isRunning = true;
+        render();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      isRunning = false;
+      cancelAnimationFrame(animationFrameId);
+      window.removeEventListener('resize', resize);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  const handleBannerMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!bannerRef.current) return;
+    const rect = bannerRef.current.getBoundingClientRect();
+    const nx = (e.clientX - rect.left) / rect.width - 0.5;
+    const ny = (e.clientY - rect.top) / rect.height - 0.5;
+    // Restrained max 6px parallax offset
+    parallaxOffset.current.targetX = nx * 8;
+    parallaxOffset.current.targetY = ny * 6;
+  };
+
+  const handleBannerMouseLeave = () => {
+    parallaxOffset.current.targetX = 0;
+    parallaxOffset.current.targetY = 0;
+  };
 
   const fetchDashboardData = async () => {
     setIsLoading(true);
@@ -71,12 +214,20 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     <div className="p-6 sm:p-8 max-w-7xl mx-auto space-y-6 animate-fadeIn text-[#2C241D] select-none">
       {/* 3D Bulging Hero Overview Banner */}
       <div
+        ref={bannerRef}
+        onMouseMove={handleBannerMouseMove}
+        onMouseLeave={handleBannerMouseLeave}
         className="rounded-[28px] border border-[#4A3222] p-6 sm:p-8 relative overflow-hidden flex flex-col lg:flex-row lg:items-center justify-between gap-6"
         style={{
           background: 'linear-gradient(135deg, #241710 0%, #160D07 100%)',
           boxShadow: '0 20px 45px -10px rgba(25, 15, 8, 0.4), inset 0 1px 2px rgba(255, 255, 255, 0.15)',
         }}
       >
+        {/* Subtle Ambient Intelligence Network Canvas (Faint nodes, thin lines, gentle motion) */}
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 w-full h-full pointer-events-none z-0 opacity-80"
+        />
         {/* Left Hero Overview Content */}
         <div className="max-w-xl relative z-10 space-y-2.5">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#3D2819] border border-[#5C3D28] text-[#DDA15E] text-[10px] font-black uppercase tracking-wider">
